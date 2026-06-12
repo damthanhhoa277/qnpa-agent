@@ -962,7 +962,7 @@ def check_heartbeat():
     cur_min = now.hour * 60 + now.minute
     if cur_min % 5 == 0 and cur_min != _last_heartbeat_min:
         _last_heartbeat_min = cur_min
-        tg_send(CHAT_SALE, f"💚 Agent alive | {now.strftime('%H:%M')} | leads={_stats['leads']} processed={_stats['processed']}")
+        tg_send(CHAT_COACHING, f"💚 Agent alive | {now.strftime('%H:%M')} | leads={_stats['leads']} processed={_stats['processed']}")
 
 def check_and_send_daily_report():
     """Gửi báo cáo 14:00 (giữa ngày) và 0:00 (tổng kết ngày) giờ VN"""
