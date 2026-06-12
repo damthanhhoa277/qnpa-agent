@@ -953,6 +953,16 @@ def process_unanswered():
 # BÁO CÁO 12h VÀ 22h
 # ============================================================
 _report_sent = {"noon": False, "evening": False, "midday": False, "midnight": False}
+_last_heartbeat_min = -1  # phút cuối gửi heartbeat
+
+def check_heartbeat():
+    """Gửi heartbeat vào CHAT_SALE mỗi 5 phút — nếu mất >10 phút là bot đang tắt"""
+    global _last_heartbeat_min
+    now = datetime.now(timezone(timedelta(hours=7)))
+    cur_min = now.hour * 60 + now.minute
+    if cur_min % 5 == 0 and cur_min != _last_heartbeat_min:
+        _last_heartbeat_min = cur_min
+        tg_send(CHAT_SALE, f"💚 Agent alive | {now.strftime('%H:%M')} | leads={_stats['leads']} processed={_stats['processed']}")
 
 def check_and_send_daily_report():
     """Gửi báo cáo 14:00 (giữa ngày) và 0:00 (tổng kết ngày) giờ VN"""
@@ -1030,6 +1040,7 @@ def run_loop():
     while True:
         try:
             process_unanswered()
+            check_heartbeat()
             check_and_send_daily_report()
             cycle += 1
 
