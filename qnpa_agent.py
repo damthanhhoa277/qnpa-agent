@@ -987,11 +987,33 @@ def check_and_send_daily_report():
 
 
 # ============================================================
+# HEALTH CHECK SERVER (cho UptimeRobot theo dõi)
+# ============================================================
+def start_health_server():
+    """Chạy HTTP server nhỏ trên port 8080 — UptimeRobot ping mỗi 5 phút"""
+    import threading
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    class HealthHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = f"OK leads={_stats.get('leads',0)} processed={_stats.get('processed',0)}".encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *args): pass  # tắt log mỗi request
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    log(f"🌐 Health server chạy trên port {port}")
+
+# ============================================================
 # VÒNG LẶP CHÍNH
 # ============================================================
 def run_loop():
     log(f"QNPA AI Agent v2.0 khởi động (poll mỗi {POLL_INTERVAL}s)")
     log(f"Log: {_log_path}")
+    start_health_server()
     load_stats()        # Khôi phục stats từ file — tránh mất số liệu khi restart
     load_human_sent()   # Khôi phục danh sách nhân viên đã gửi hôm nay (nếu có)
     if DRY_RUN:

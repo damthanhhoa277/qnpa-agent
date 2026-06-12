@@ -1,1 +1,1 @@
-worker: python qnpa_agent.py
+web: python qnpa_agent.py
