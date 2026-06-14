@@ -959,6 +959,29 @@ def process_followups():
         time.sleep(0.5)
 
 
+def warm_up_replied_convs():
+    """Chạy 1 lần khi khởi động: đánh dấu conv page đã reply để không reply lại sau restart"""
+    log("🔄 Warm-up: đọc lại trạng thái conversations...")
+    try:
+        inbox    = get_conversations(50, "inbox")
+        comments = get_conversations(30, "comment")
+        count = 0
+        for c in (inbox + comments):
+            if not isinstance(c, dict):
+                continue
+            _lsb           = c.get("last_sent_by") or {}
+            last_sent_by   = _lsb if isinstance(_lsb, dict) else {}
+            last_sender_id = str(last_sent_by.get("id", ""))
+            conv_id        = c.get("id", "")
+            snippet_key    = c.get("snippet", "")[:60]
+            if conv_id and last_sender_id == PAGE_ID:
+                _replied_convs[conv_id] = snippet_key
+                count += 1
+        log(f"✅ Warm-up xong: đánh dấu {count} conv đã reply — sẽ không reply lại")
+    except Exception as e:
+        log(f"⚠️ Warm-up lỗi: {e}")
+
+
 def process_unanswered():
     inbox_convs   = get_conversations(50, "inbox")
     p1, e1        = process_conv_list(inbox_convs, "inbox")
@@ -1039,6 +1062,7 @@ def run_loop():
     start_health_server()
     load_stats()        # Khôi phục stats từ file — tránh mất số liệu khi restart
     load_human_sent()   # Khôi phục danh sách nhân viên đã gửi hôm nay (nếu có)
+    warm_up_replied_convs()  # Đánh dấu conv đã reply trước khi vào loop — tránh reply lại sau restart
     if DRY_RUN:
         log("⚠️ DRY RUN — không gửi tin thật")
 
