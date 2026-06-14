@@ -652,16 +652,17 @@ def save_stats():
     global _leads_counted
     try:
         data = dict(_stats)
-        data["_leads_counted"] = list(_leads_counted)
+        data["_leads_counted"]  = list(_leads_counted)
+        data["_report_sent"]    = _report_sent          # lưu để tránh gửi lại sau restart
         with open(_STATS_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
 
 def load_stats():
-    """Khôi phục stats + _leads_counted từ file khi restart"""
+    """Khôi phục stats + _leads_counted + _report_sent từ file khi restart"""
     import json as _json, os as _os
-    global _stats, _leads_counted
+    global _stats, _leads_counted, _report_sent
     if not _os.path.exists(_STATS_FILE):
         return
     try:
@@ -672,6 +673,9 @@ def load_stats():
                 _stats[k] = saved[k]
         if "_leads_counted" in saved:
             _leads_counted = set(saved["_leads_counted"])
+        if "_report_sent" in saved:
+            _report_sent.update(saved["_report_sent"])
+            log(f"📂 Đã load report_sent: {_report_sent}")
         log(f"📂 Đã load stats: leads={_stats['leads']} | inbox={_stats['new_inbox']} | processed={_stats['processed']} | leads_counted={len(_leads_counted)}")
     except Exception as e:
         log(f"⚠️ load_stats lỗi: {e}")
@@ -1010,13 +1014,17 @@ def check_and_send_daily_report():
     if h == 14 and m < 2 and not _report_sent["midday"]:
         tg_report_14h(_stats)
         _report_sent["midday"] = True
+        save_stats()   # lưu ngay để instance khác biết đã gửi
         log("📊 Đã gửi báo cáo giữa ngày (14h)")
     elif h != 14:
-        _report_sent["midday"] = False
+        if _report_sent.get("midday"):
+            _report_sent["midday"] = False
+            save_stats()
 
     if h == 0 and m < 2 and not _report_sent["midnight"]:
         tg_report_24h(_stats)
         _report_sent["midnight"] = True
+        save_stats()   # lưu ngay để instance khác biết đã gửi
         log("📊 Đã gửi tổng kết ngày (0h)")
         # Reset stats sau báo cáo tổng kết
         _stats.update({
@@ -1025,12 +1033,14 @@ def check_and_send_daily_report():
             "followup_2h": 0, "followup_10h": 0, "followup_20h": 0, "followup_manual": 0,
             "errors": [], "top_questions": []
         })
+        _report_sent["midnight"] = False
         save_stats()
-        # Reset danh sách nhân viên đã gửi để đếm lại ngày mới
         _human_sent_tracked.clear()
         save_human_sent()
     elif h != 0:
-        _report_sent["midnight"] = False
+        if _report_sent.get("midnight"):
+            _report_sent["midnight"] = False
+            save_stats()
 
 
 # ============================================================
