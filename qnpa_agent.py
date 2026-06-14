@@ -711,16 +711,23 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
     convs = deduped
 
     for c in convs:
-        last_sent_by   = c.get("last_sent_by") or {}
+        if not isinstance(c, dict):
+            continue
+        _lsb           = c.get("last_sent_by") or {}
+        last_sent_by   = _lsb if isinstance(_lsb, dict) else {}
         last_sender_id = str(last_sent_by.get("id", ""))
-        conv_id        = c["id"]
+        conv_id        = c.get("id", "")
+        if not conv_id:
+            continue
 
         # Bỏ qua nếu page đã trả lời — nhưng kiểm tra xem bot hay nhân viên gửi
         if last_sender_id == PAGE_ID:
             snippet      = c.get("snippet", "")[:120]
             snippet_key  = snippet[:60]
             customers    = c.get("customers", [])
-            cust_name    = customers[0]["name"] if customers else "?"
+            _c0          = customers[0] if customers else {}
+            _c0          = _c0 if isinstance(_c0, dict) else {}
+            cust_name    = _c0.get("name", "?")
             # Nếu conv này KHÔNG có trong _replied_convs (bot chưa reply)
             # → nhân viên gửi thủ công → đếm vào followup_manual
             bot_sent_key = _replied_convs.get(conv_id)
@@ -736,8 +743,10 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             continue
 
         customers   = c.get("customers", [])
-        customer    = customers[0]["name"] if customers else "Khách hàng"
-        customer_id = customers[0].get("id") if customers else None
+        _cust0      = customers[0] if customers else {}
+        _cust0      = _cust0 if isinstance(_cust0, dict) else {}
+        customer    = _cust0.get("name", "Khách hàng")
+        customer_id = _cust0.get("id")
         snippet     = c.get("snippet", "")[:120]
         snippet_key = snippet[:60]
 
