@@ -750,21 +750,23 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         snippet     = c.get("snippet", "")[:120]
         snippet_key = snippet[:60]
 
-        # Kiểm tra 24h Facebook rule
-        last_active_str = c.get("last_customer_interactive_at") or ""
-        if last_active_str:
-            try:
-                la = datetime.fromisoformat(last_active_str.replace("Z", "+00:00"))
-                if la.tzinfo is None:
-                    la = la.replace(tzinfo=timezone.utc)
-                age_h = (datetime.now(timezone.utc) - la).total_seconds() / 3600
-                if age_h > 23:
-                    if conv_id not in _replied_convs:
-                        log(f"  ⏰ Tin cũ {age_h:.0f}h — {customer} — bỏ qua")
-                        _replied_convs[conv_id] = snippet_key
-                    continue
-            except Exception:
-                pass
+        # Kiểm tra 24h Facebook rule — CHỈ áp dụng cho inbox
+        # Comment không dùng last_customer_interactive_at vì trường này trả về ngày đăng bài gốc
+        if source_type == "inbox":
+            last_active_str = c.get("last_customer_interactive_at") or ""
+            if last_active_str:
+                try:
+                    la = datetime.fromisoformat(last_active_str.replace("Z", "+00:00"))
+                    if la.tzinfo is None:
+                        la = la.replace(tzinfo=timezone.utc)
+                    age_h = (datetime.now(timezone.utc) - la).total_seconds() / 3600
+                    if age_h > 23:
+                        if conv_id not in _replied_convs:
+                            log(f"  ⏰ Tin cũ {age_h:.0f}h — {customer} — bỏ qua")
+                            _replied_convs[conv_id] = snippet_key
+                        continue
+                except Exception:
+                    pass
 
         # Bỏ qua nếu snippet y hệt lần trước (chưa có tin mới)
         if conv_id in _replied_convs and _replied_convs[conv_id] == snippet_key:
@@ -864,10 +866,9 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             err_msg = result.get("message", str(result))[:120]
             log(f"  ✗ Pancake từ chối gửi: {err_msg}")
             if "551" in err_msg or "không có mặt" in err_msg.lower():
-                # Tài khoản hạn chế tạm thời — CHỈ skip snippet này, KHÔNG block vĩnh viễn
-                # Khi khách nhắn tin mới → snippet thay đổi → agent sẽ thử lại
-                _replied_convs[conv_id] = snippet_key
-                log(f"  ⏭ Skip {customer} snippet (551) — sẽ thử lại khi có tin mới")
+                # Tài khoản hạn chế tạm thời — thử lại sau 5 phút
+                _last_replied[conv_id] = datetime.now(timezone.utc) - timedelta(seconds=240)
+                log(f"  ⏭ 551 {customer} — thử lại sau ~5 phút")
             elif "100" in err_msg or "không tìm thấy" in err_msg.lower():
                 # User không tồn tại — block vĩnh viễn
                 _blocked_convs.add(conv_id)
