@@ -185,15 +185,16 @@ def get_messages(conv_id, customer_id=None, limit=15):
         return []
 
 
-def send_message(conv_id, text, customer_id=None):
+def send_message(conv_id, text, customer_id=None, source_type="inbox"):
     if DRY_RUN:
         log(f"  [DRY RUN] Sẽ gửi: {text[:80]}")
         return {"dry_run": True}
     url = f"{BASE}/pages/{PAGE_ID}/conversations/{conv_id}/messages?access_token={PANCAKE_TOKEN}"
     if customer_id:
         url += f"&customer_id={customer_id}"
+    action = "reply_comment" if source_type == "comment" else "reply_inbox"
     try:
-        r = requests.post(url, json={"message": text, "action": "reply_inbox"}, timeout=15)
+        r = requests.post(url, json={"message": text, "action": action}, timeout=15)
         return r.json()
     except Exception as e:
         log(f"⚠️ send_message lỗi: {e}")
@@ -236,7 +237,7 @@ def tg_hot_lead(lead: dict):
         f"📞 SĐT: <b>{lead.get('phone', 'Chưa có')}</b>\n"
         f"💬 Nguồn: {nguon}\n"
         f"⏰ Thời gian: {now_str}\n"
-        f"👉 Cần telesale gọi trong vòng 15 phút."
+        f"👉 Cần telesale gọi lại sớm nhất có thể."
     )
     tg_send(CHAT_SALE, msg)
 
@@ -384,7 +385,7 @@ def gsheet_upsert_lead(lead: dict, source_type: str = "inbox"):
             "pickleball"  : lead.get("pickleball", ""),
             "sdt"         : lead.get("phone", ""),
             "kenh"        : source_type,
-            "trang_thai"  : "🆕 Mới" if lead.get("phone") else "💬 Đang hội thoại",
+            "trang_thai"  : "Mới tạo",  # Luôn là Mới tạo — khớp dropdown Apps Script
         }
         r = requests.post(GSHEET_WEBHOOK, json=payload, timeout=10)
         if r.status_code == 200:
@@ -648,16 +649,19 @@ def save_human_sent():
 
 def save_stats():
     import json
+    global _leads_counted
     try:
+        data = dict(_stats)
+        data["_leads_counted"] = list(_leads_counted)
         with open(_STATS_FILE, "w", encoding="utf-8") as f:
-            json.dump(_stats, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
 
 def load_stats():
-    """Khôi phục stats từ file khi restart — tránh mất số liệu giữa ngày"""
+    """Khôi phục stats + _leads_counted từ file khi restart"""
     import json as _json, os as _os
-    global _stats
+    global _stats, _leads_counted
     if not _os.path.exists(_STATS_FILE):
         return
     try:
@@ -666,7 +670,9 @@ def load_stats():
         for k in _stats:
             if k in saved:
                 _stats[k] = saved[k]
-        log(f"📂 Đã load stats: leads={_stats['leads']} | inbox={_stats['new_inbox']} | processed={_stats['processed']}")
+        if "_leads_counted" in saved:
+            _leads_counted = set(saved["_leads_counted"])
+        log(f"📂 Đã load stats: leads={_stats['leads']} | inbox={_stats['new_inbox']} | processed={_stats['processed']} | leads_counted={len(_leads_counted)}")
     except Exception as e:
         log(f"⚠️ load_stats lỗi: {e}")
 
@@ -784,6 +790,13 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         _lead_store[conv_id] = prev
         lead = prev  # dùng lead đã merge
 
+        # Cooldown 90s — nếu vừa reply conv này thì bỏ qua (tránh gửi 2 lần khi khách nhắn nhanh)
+        last_r = _last_replied.get(conv_id)
+        if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 90:
+            log(f"  ⏳ Cooldown {customer} — vừa reply {int((datetime.now(timezone.utc)-last_r).total_seconds())}s trước")
+            _replied_convs[conv_id] = snippet_key
+            continue
+
         # Đánh dấu đang xử lý NGAY — tránh cycle tiếp theo (8s sau) xử lý lại trước khi send xong
         _replied_convs[conv_id] = snippet_key
 
@@ -796,7 +809,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             if full:
                 _stats["full_leads"] += 1
             tg_hot_lead(lead)
-            gsheet_upsert_lead(lead, source_type)
+            gsheet_upsert_lead(lead, source_type)  # CHỈ ghi Sheet khi có SĐT
 
         # Gọi Claude
         reply, err = ask_claude(customer, messages)
@@ -812,7 +825,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         log(f"  ✓ Linh soạn: {reply[:80]}...")
 
         # Gửi tin nhắn
-        result = send_message(conv_id, reply, customer_id=customer_id)
+        result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
         send_ok = result.get("dry_run") or result.get("success") or result.get("message_id") or result.get("id")
 
         if send_ok:
@@ -836,10 +849,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 # Đã có SĐT → không cần chăm thêm
                 _followup_store.pop(conv_id, None)
 
-            # Ghi Sheet nếu chưa có SĐT nhưng có thông tin hữu ích
-            if not phone_detected:
-                if any(lead.get(k) not in ("Chưa có", "Chưa rõ", "") for k in ("age", "area", "pickleball")):
-                    gsheet_upsert_lead(lead, source_type)
+            # Không ghi Sheet khi chưa có SĐT — chỉ nhập lead khi đã xin được số điện thoại
 
         else:
             err_msg = result.get("message", str(result))[:120]
