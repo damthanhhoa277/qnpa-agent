@@ -900,6 +900,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             else:
                 log(f"  ✗ Claude lỗi: {err}")
                 errors.append(f"{customer}: {err}")
+                _replied_convs.pop(conv_id, None)  # cho phép retry cycle sau
             continue
 
         log(f"  ✓ Linh soạn: {reply[:80]}...")
@@ -937,6 +938,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             if "551" in err_msg or "không có mặt" in err_msg.lower():
                 # Tài khoản hạn chế tạm thời — thử lại sau 5 phút
                 _last_replied[conv_id] = datetime.now(timezone.utc) - timedelta(seconds=240)
+                _replied_convs.pop(conv_id, None)  # xóa để retry qua được check snippet
                 log(f"  ⏭ 551 {customer} — thử lại sau ~5 phút")
             elif "100" in err_msg or "không tìm thấy" in err_msg.lower():
                 # User không tồn tại — block vĩnh viễn
@@ -949,6 +951,8 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 _stats["manual_needed"] += 1
                 log(f"  ⏰ Block {customer} — quá 24h FB rule (#10)")
             else:
+                # Lỗi không xác định — xóa đánh dấu để retry cycle sau
+                _replied_convs.pop(conv_id, None)
                 errors.append(f"{customer}: {err_msg}")
                 _stats["errors"].append(f"{customer}: {err_msg[:60]}")
 
