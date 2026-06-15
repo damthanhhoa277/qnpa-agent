@@ -428,30 +428,33 @@ def extract_lead_info(messages, customer_name: str) -> dict:
 # ============================================================
 # GOOGLE SHEET — UPSERT (cập nhật nếu đã có, thêm mới nếu chưa)
 # ============================================================
-def gsheet_upsert_lead(lead: dict, source_type: str = "inbox"):
-    """Ghi hoặc cập nhật lead vào Google Sheet qua Apps Script webhook"""
+def gsheet_upsert_lead(lead: dict, source_type: str = "inbox") -> str:
+    """Ghi hoặc cập nhật lead vào Google Sheet. Trả về 'inserted'/'updated'/'error'."""
     if not GSHEET_WEBHOOK:
-        return
+        return "error"
     try:
         payload = {
             "conv_key"    : lead.get("conv_key", ""),
-            "ngay_gio"    : datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m/%Y %H:%M"),
             "ten"         : lead.get("parent", ""),
             "hoc_vien"    : lead.get("student", ""),
             "tuoi"        : lead.get("age", ""),
             "khu_vuc"     : lead.get("area", ""),
             "pickleball"  : lead.get("pickleball", ""),
             "sdt"         : lead.get("phone", ""),
-            "kenh"        : source_type,
-            "trang_thai"  : "Mới tạo",  # Luôn là Mới tạo — khớp dropdown Apps Script
+            "nguon"       : "Facebook Fanpage" if source_type == "inbox" else "Fanpage Comment",
+            "tinh_trang"  : "Mới tạo",
         }
         r = requests.post(GSHEET_WEBHOOK, json=payload, timeout=10)
         if r.status_code == 200:
-            log(f"  ✅ Ghi Sheet OK: {lead.get('parent')} — {lead.get('phone','chưa SĐT')}")
+            action = r.json().get("action", "unknown")
+            log(f"  ✅ Sheet {action}: {lead.get('parent')} — {lead.get('phone','chưa SĐT')}")
+            return action  # "inserted" hoặc "updated"
         else:
             log(f"  ⚠️ Sheet lỗi {r.status_code}: {r.text[:80]}")
+            return "error"
     except Exception as e:
         log(f"  ⚠️ Lỗi ghi Sheet: {e}")
+        return "error"
 
 # ============================================================
 # CLAUDE AI
@@ -873,16 +876,20 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         # Đánh dấu đang xử lý NGAY — tránh cycle tiếp theo (8s sau) xử lý lại trước khi send xong
         _replied_convs[conv_id] = snippet_key
 
-        # Đếm SĐT ngay khi phát hiện — không phụ thuộc vào việc bot có reply thành công không
+        # Đếm SĐT và ghi Sheet — Google Sheet là nguồn sự thật chống lặp qua Railway restart
         phone_detected = lead.get("phone", "")
-        if phone_detected and conv_id not in _leads_counted:
-            _leads_counted.add(conv_id)
-            _stats["leads"] += 1
-            full = all(lead.get(k) not in ("Chưa có", "Chưa rõ", "") for k in ("age", "area", "pickleball"))
-            if full:
-                _stats["full_leads"] += 1
-            tg_hot_lead(lead)
-            gsheet_upsert_lead(lead, source_type)  # CHỈ ghi Sheet khi có SĐT
+        if phone_detected:
+            sheet_action = gsheet_upsert_lead(lead, source_type)
+            # Chỉ gửi HOT LEAD nếu Sheet xác nhận lead MỚI (inserted) — không phải update cũ
+            if sheet_action == "inserted" and conv_id not in _leads_counted:
+                _leads_counted.add(conv_id)
+                _stats["leads"] += 1
+                full = all(lead.get(k) not in ("Chưa có", "Chưa rõ", "") for k in ("age", "area", "pickleball"))
+                if full:
+                    _stats["full_leads"] += 1
+                tg_hot_lead(lead)
+            elif sheet_action == "updated":
+                _leads_counted.add(conv_id)  # đánh dấu để bỏ qua lần sau trong session này
 
         # Gọi Claude
         reply, err = ask_claude(customer, messages)
@@ -1134,24 +1141,26 @@ def check_and_send_daily_report():
 
     # ── Báo cáo 14h ──
     if h == 14 and m == 0 and not _report_sent["midday"]:
-        if not gsheet_check_report(f"midday_{VN_date}"):
+        _report_sent["midday"] = True  # block ngay trong session — tránh gửi nhiều lần trong cùng phút
+        key = f"midday_{VN_date}"
+        if not gsheet_check_report(key):
+            gsheet_mark_report(key)    # đánh dấu TRƯỚC khi gửi — chống race condition 2 instance
             live = fetch_live_stats()
             tg_report_14h_live(live)
-            gsheet_mark_report(f"midday_{VN_date}")
             log(f"📊 Đã gửi báo cáo giữa ngày (14h) — {len(live['leads'])} leads")
-        _report_sent["midday"] = True
 
     elif h == 15:
         _report_sent["midday"] = False
 
     # ── Báo cáo 0h ──
     if h == 0 and m == 0 and not _report_sent["midnight"]:
-        if not gsheet_check_report(f"midnight_{VN_date}"):
+        _report_sent["midnight"] = True  # block ngay trong session
+        key = f"midnight_{VN_date}"
+        if not gsheet_check_report(key):
+            gsheet_mark_report(key)    # đánh dấu TRƯỚC khi gửi
             live = fetch_live_stats()
             tg_report_24h_live(live)
-            gsheet_mark_report(f"midnight_{VN_date}")
             log(f"📊 Đã gửi tổng kết ngày (0h) — {len(live['leads'])} leads")
-        _report_sent["midnight"] = True
         _human_sent_tracked.clear()
         save_human_sent()
 
