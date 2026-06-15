@@ -214,8 +214,17 @@ def tg_send(chat_id, text):
         pass
 
 
+_alert_cache: dict = {}  # key→last_sent datetime — chống spam cùng lỗi
+
 def tg_alert(text):
-    """Cảnh báo lỗi hệ thống — gửi cả 2 nhóm"""
+    """Cảnh báo lỗi — chỉ gửi 1 lần mỗi 30 phút cho cùng loại lỗi"""
+    key = text[:80]  # dùng 80 ký tự đầu làm key
+    now = datetime.now(timezone.utc)
+    last = _alert_cache.get(key)
+    if last and (now - last).total_seconds() < 1800:
+        log(f"  [alert throttled] {key[:60]}")
+        return
+    _alert_cache[key] = now
     tg_send(CHAT_SALE, f"⚠️ {text}")
     tg_send(CHAT_COACHING, f"⚠️ {text}")
 
