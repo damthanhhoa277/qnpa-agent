@@ -817,6 +817,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         # Kiểm tra 24h Facebook rule — CHỈ áp dụng cho inbox
         # Comment không dùng last_customer_interactive_at vì trường này trả về ngày đăng bài gốc
+        last_active_str = ""
         if source_type == "inbox":
             last_active_str = c.get("last_customer_interactive_at") or ""
             if last_active_str:
@@ -842,7 +843,8 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 60:
             continue
 
-        log(f"\n→ [{source_type}] {customer}: \"{snippet[:60]}\" | ts={last_active_str[:10] or 'no-ts'}")
+        ts_display = (last_active_str[:10] if source_type == "inbox" and last_active_str else c.get("updated_at", "")[:10]) or "no-ts"
+        log(f"\n→ [{source_type}] {customer}: \"{snippet[:60]}\" | ts={ts_display}")
         _stats["new_inbox"] += 1
 
         # Lấy tin nhắn
