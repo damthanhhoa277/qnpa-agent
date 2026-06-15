@@ -446,7 +446,8 @@ def gsheet_upsert_lead(lead: dict, source_type: str = "inbox") -> str:
         }
         r = requests.post(GSHEET_WEBHOOK, json=payload, timeout=10)
         if r.status_code == 200:
-            action = r.json().get("action", "unknown")
+            rj = r.json()
+            action = rj.get("action", "unknown") if isinstance(rj, dict) else "unknown"
             log(f"  ✅ Sheet {action}: {lead.get('parent')} — {lead.get('phone','chưa SĐT')}")
             return action  # "inserted" hoặc "updated"
         else:
@@ -909,6 +910,8 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         # Gửi tin nhắn
         result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
+        if not isinstance(result, dict):
+            result = {}
         send_ok = result.get("dry_run") or result.get("success") or result.get("message_id") or result.get("id")
 
         if send_ok:
