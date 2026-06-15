@@ -242,6 +242,64 @@ def tg_hot_lead(lead: dict):
     tg_send(CHAT_SALE, msg)
 
 
+def gsheet_check_report(key: str) -> bool:
+    """Kiểm tra Google Sheet xem báo cáo đã gửi chưa — dùng làm lock chống gửi 2 lần"""
+    if not GSHEET_WEBHOOK:
+        return False
+    try:
+        r = requests.post(GSHEET_WEBHOOK, json={"action": "check_report", "report_key": key}, timeout=8)
+        return r.json().get("sent", False)
+    except:
+        return False
+
+def gsheet_mark_report(key: str):
+    """Đánh dấu báo cáo đã gửi vào Google Sheet"""
+    if not GSHEET_WEBHOOK:
+        return
+    try:
+        requests.post(GSHEET_WEBHOOK, json={"action": "mark_report", "report_key": key}, timeout=8)
+    except:
+        pass
+
+def tg_report_14h_live(live: dict):
+    """Báo cáo giữa ngày từ dữ liệu Pancake thực tế"""
+    leads = live.get("leads", {})
+    inbox = live.get("inbox", 0)
+    comments = live.get("comments", 0)
+    total = inbox + comments
+    rate = f"{len(leads)/total*100:.0f}%" if total > 0 else "0%"
+    lead_list = "\n".join(f"  {i+1}. {v['name']} — {v['phone']}"
+                          for i, v in enumerate(list(leads.values())[:10]))
+    msg = (
+        f"📊 <b>BÁO CÁO GIỮA NGÀY</b>\n"
+        f"📥 Inbox mới: <b>{inbox}</b>\n"
+        f"💬 Comment mới: <b>{comments}</b>\n"
+        f"📞 SĐT thu được: <b>{len(leads)}</b>\n"
+        f"📈 Tỷ lệ → SĐT: <b>{rate}</b>\n"
+        f"🔥 Danh sách lead:\n{lead_list if lead_list else '  (chưa có)'}\n"
+        f"👉 Telesale gọi ngay các số trên!"
+    )
+    tg_send(CHAT_SALE, msg)
+
+def tg_report_24h_live(live: dict):
+    """Tổng kết ngày từ dữ liệu Pancake thực tế"""
+    leads = live.get("leads", {})
+    inbox = live.get("inbox", 0)
+    comments = live.get("comments", 0)
+    total = inbox + comments
+    rate = f"{len(leads)/total*100:.0f}%" if total > 0 else "0%"
+    lead_list = "\n".join(f"  {i+1}. {v['name']} — {v['phone']}"
+                          for i, v in enumerate(list(leads.values())[:15]))
+    msg = (
+        f"📊 <b>TỔNG KẾT NGÀY</b>\n"
+        f"📥 Inbox: <b>{inbox}</b>\n"
+        f"💬 Comment: <b>{comments}</b>\n"
+        f"📞 SĐT thu được: <b>{len(leads)}</b>\n"
+        f"📈 Tỷ lệ → SĐT: <b>{rate}</b>\n"
+        f"🔥 Tất cả lead hôm nay:\n{lead_list if lead_list else '  (chưa có)'}"
+    )
+    tg_send(CHAT_SALE, msg)
+
 def tg_report_14h(stats: dict):
     """Báo cáo giữa ngày — gửi lúc 14:00"""
     total = stats.get("processed", 0)
@@ -1005,42 +1063,100 @@ _last_heartbeat_min = -1  # phút cuối gửi heartbeat
 def check_heartbeat():
     pass  # Tắt heartbeat — im lặng khi bình thường, chỉ alert khi restart/lỗi
 
+_agent_start_time = datetime.now(timezone.utc)
+
+def fetch_live_stats():
+    """Lấy số liệu thực từ Pancake API — không phụ thuộc _stats trong bộ nhớ"""
+    VN = timezone(timedelta(hours=7))
+    today = datetime.now(VN).date()
+    phone_re = re.compile(r"0\d{9}")
+
+    def get_msgs(conv_id, cust_id=None):
+        url = f"{BASE}/pages/{PAGE_ID}/conversations/{conv_id}/messages?access_token={PANCAKE_TOKEN}&limit=30"
+        if cust_id: url += f"&customer_id={cust_id}"
+        try: return requests.get(url, timeout=10).json().get("messages", [])
+        except: return []
+
+    def is_today(ts):
+        if not ts: return False
+        try:
+            t = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            if t.tzinfo is None: t = t.replace(tzinfo=timezone.utc)
+            return t.astimezone(VN).date() == today
+        except: return False
+
+    inbox_count = 0
+    comment_count = 0
+    leads = {}  # conv_id → {name, phone}
+
+    for c in get_conversations(100, "inbox"):
+        if not isinstance(c, dict): continue
+        if not is_today(c.get("last_customer_interactive_at") or c.get("updated_at")): continue
+        inbox_count += 1
+        conv_id = c.get("id", "")
+        cust = (c.get("customers") or [{}])[0]
+        cust = cust if isinstance(cust, dict) else {}
+        msgs = get_msgs(conv_id, cust.get("id"))
+        txt = " ".join(str(m.get("message","") or m.get("original_message","")) for m in msgs
+                       if str((m.get("from") or {}).get("id","")) != PAGE_ID)
+        phones = phone_re.findall(txt)
+        if phones: leads[conv_id] = {"name": cust.get("name","?"), "phone": phones[0]}
+
+    for c in get_conversations(50, "comment"):
+        if not isinstance(c, dict): continue
+        if not is_today(c.get("updated_at")): continue
+        comment_count += 1
+        conv_id = c.get("id", "")
+        cust = (c.get("customers") or [{}])[0]
+        cust = cust if isinstance(cust, dict) else {}
+        msgs = get_msgs(conv_id, cust.get("id"))
+        txt = " ".join(str(m.get("message","") or m.get("original_message","")) for m in msgs
+                       if str((m.get("from") or {}).get("id","")) != PAGE_ID)
+        phones = phone_re.findall(txt)
+        if phones: leads[conv_id] = {"name": cust.get("name","?"), "phone": phones[0]}
+
+    return {"inbox": inbox_count, "comments": comment_count, "leads": leads}
+
+
 def check_and_send_daily_report():
-    """Gửi báo cáo 14:00 (giữa ngày) và 0:00 (tổng kết ngày) giờ VN"""
+    """Gửi báo cáo 14:00 và 0:00 giờ VN — dữ liệu từ Pancake API thực tế"""
     global _report_sent
+    # Không gửi báo cáo trong 90 giây đầu sau khởi động
+    # — tránh instance mới Railway gửi trùng với instance cũ
+    uptime = (datetime.now(timezone.utc) - _agent_start_time).total_seconds()
+    if uptime < 90:
+        return
+
     now = datetime.now(timezone(timedelta(hours=7)))
     h, m = now.hour, now.minute
 
-    if h == 14 and m < 2 and not _report_sent["midday"]:
-        tg_report_14h(_stats)
-        _report_sent["midday"] = True
-        save_stats()   # lưu ngay để instance khác biết đã gửi
-        log("📊 Đã gửi báo cáo giữa ngày (14h)")
-    elif h != 14:
-        if _report_sent.get("midday"):
-            _report_sent["midday"] = False
-            save_stats()
+    VN_date = now.strftime("%d/%m/%Y")
 
-    if h == 0 and m < 2 and not _report_sent["midnight"]:
-        tg_report_24h(_stats)
+    # ── Báo cáo 14h ──
+    if h == 14 and m == 0 and not _report_sent["midday"]:
+        if not gsheet_check_report(f"midday_{VN_date}"):
+            live = fetch_live_stats()
+            tg_report_14h_live(live)
+            gsheet_mark_report(f"midday_{VN_date}")
+            log(f"📊 Đã gửi báo cáo giữa ngày (14h) — {len(live['leads'])} leads")
+        _report_sent["midday"] = True
+
+    elif h == 15:
+        _report_sent["midday"] = False
+
+    # ── Báo cáo 0h ──
+    if h == 0 and m == 0 and not _report_sent["midnight"]:
+        if not gsheet_check_report(f"midnight_{VN_date}"):
+            live = fetch_live_stats()
+            tg_report_24h_live(live)
+            gsheet_mark_report(f"midnight_{VN_date}")
+            log(f"📊 Đã gửi tổng kết ngày (0h) — {len(live['leads'])} leads")
         _report_sent["midnight"] = True
-        save_stats()   # lưu ngay để instance khác biết đã gửi
-        log("📊 Đã gửi tổng kết ngày (0h)")
-        # Reset stats sau báo cáo tổng kết
-        _stats.update({
-            "new_inbox": 0, "processed": 0, "leads": 0, "full_leads": 0,
-            "no_reply": 0, "manual_needed": 0, "comments": 0,
-            "followup_2h": 0, "followup_10h": 0, "followup_20h": 0, "followup_manual": 0,
-            "errors": [], "top_questions": []
-        })
-        _report_sent["midnight"] = False
-        save_stats()
         _human_sent_tracked.clear()
         save_human_sent()
-    elif h != 0:
-        if _report_sent.get("midnight"):
-            _report_sent["midnight"] = False
-            save_stats()
+
+    elif h == 1:
+        _report_sent["midnight"] = False
 
 
 # ============================================================

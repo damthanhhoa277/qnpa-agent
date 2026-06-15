@@ -110,10 +110,53 @@ function autoMucDo(sdt, tuoi, khu_vuc, pickleball) {
   return "❄ Cold";
 }
 
+// ── Report flag: tránh gửi báo cáo 2 lần khi Railway restart ──
+function getConfigSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName("CONFIG");
+  if (!sh) {
+    sh = ss.insertSheet("CONFIG");
+    sh.getRange(1,1).setValue("report_key");
+    sh.getRange(1,2).setValue("sent_at");
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+function isReportSent(reportKey) {
+  var sh = getConfigSheet();
+  var data = sh.getDataRange().getValues();
+  var today = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy");
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] === reportKey && data[i][1] === today) return true;
+  }
+  return false;
+}
+
+function markReportSent(reportKey) {
+  var sh = getConfigSheet();
+  var today = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy");
+  var data = sh.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] === reportKey) { sh.getRange(i+1, 2).setValue(today); return; }
+  }
+  sh.appendRow([reportKey, today]);
+}
+
 // ── Nhận dữ liệu từ Agent (POST) ─────────────────────────────
 function doPost(e) {
   try {
     var d  = JSON.parse(e.postData.contents);
+
+    // Xử lý report flag
+    if (d.action === "check_report") {
+      return ok({ sent: isReportSent(d.report_key) });
+    }
+    if (d.action === "mark_report") {
+      markReportSent(d.report_key);
+      return ok({ marked: true });
+    }
+
     var sh = getMonthSheet();
     var ck = d.conv_key || "";
     var now    = new Date();
