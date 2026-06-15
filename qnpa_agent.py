@@ -643,7 +643,17 @@ def ask_claude(customer_name: str, messages: list):
     try:
         r = requests.post(CLAUDE_BASE, json=payload, headers=headers, timeout=30)
         if r.status_code != 200:
-            tg_alert(f"Claude API lỗi {r.status_code}: {r.text[:150]}")
+            err_text = r.text[:200]
+            # Không spam Telegram khi hết credit — chỉ log 1 lần mỗi 30 phút
+            if "credit balance" in err_text or "too low" in err_text:
+                now_ts = datetime.now(timezone.utc)
+                last_credit_alert = getattr(ask_claude, "_last_credit_alert", None)
+                if not last_credit_alert or (now_ts - last_credit_alert).total_seconds() > 1800:
+                    ask_claude._last_credit_alert = now_ts
+                    tg_alert("⛔ Claude API hết credit — vào console.anthropic.com/billing để nạp tiền. Bot tạm dừng trả lời.")
+                log(f"  ⛔ Claude hết credit — bỏ qua {customer_name}")
+            else:
+                tg_alert(f"Claude API lỗi {r.status_code}: {err_text[:150]}")
             return None, f"Claude lỗi {r.status_code}"
         return r.json()["content"][0]["text"].strip(), None
     except Exception as e:
