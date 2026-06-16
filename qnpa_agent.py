@@ -656,29 +656,42 @@ def ask_claude(customer_name: str, messages: list):
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
-    try:
-        r = requests.post(CLAUDE_BASE, json=payload, headers=headers, timeout=30)
-        if r.status_code != 200:
-            err_text = r.text[:200]
-            # Không spam Telegram khi hết credit — chỉ log 1 lần mỗi 30 phút
-            if "credit balance" in err_text or "too low" in err_text:
-                now_ts = datetime.now(timezone.utc)
-                last_credit_alert = getattr(ask_claude, "_last_credit_alert", None)
-                if not last_credit_alert or (now_ts - last_credit_alert).total_seconds() > 1800:
-                    ask_claude._last_credit_alert = now_ts
-                    tg_alert("⛔ Claude API hết credit — vào console.anthropic.com/billing để nạp tiền. Bot tạm dừng trả lời.")
-                log(f"  ⛔ Claude hết credit — bỏ qua {customer_name}")
-            else:
-                tg_alert(f"Claude API lỗi {r.status_code}: {err_text[:150]}")
-            return None, f"Claude lỗi {r.status_code}"
-        data = r.json()
-        content = data.get("content") if isinstance(data, dict) else None
-        if not content or not isinstance(content, list) or not content[0]:
-            return None, f"Claude response rỗng: {str(data)[:80]}"
-        return content[0].get("text", "").strip(), None
-    except Exception as e:
-        tg_alert(f"Claude exception: {e}")
-        return None, str(e)
+    _FALLBACK = (
+        f"Dạ em là Linh từ QNPA ạ! {customer_name or 'Anh/chị'} cho em SĐT "
+        f"để chuyên viên liên hệ tư vấn chi tiết sớm nhất nhé 😊"
+    )
+    for attempt in range(2):
+        try:
+            r = requests.post(CLAUDE_BASE, json=payload, headers=headers, timeout=45)
+            if r.status_code != 200:
+                err_text = r.text[:200]
+                if "credit balance" in err_text or "too low" in err_text:
+                    now_ts = datetime.now(timezone.utc)
+                    last_credit_alert = getattr(ask_claude, "_last_credit_alert", None)
+                    if not last_credit_alert or (now_ts - last_credit_alert).total_seconds() > 1800:
+                        ask_claude._last_credit_alert = now_ts
+                        tg_alert("⛔ Claude API hết credit — vào console.anthropic.com/billing để nạp tiền. Bot tạm dừng trả lời.")
+                    log(f"  ⛔ Claude hết credit — bỏ qua {customer_name}")
+                    return None, f"Claude lỗi {r.status_code}"
+                else:
+                    tg_alert(f"Claude API lỗi {r.status_code}: {err_text[:150]}")
+                    return None, f"Claude lỗi {r.status_code}"
+            data = r.json()
+            content = data.get("content") if isinstance(data, dict) else None
+            if not content or not isinstance(content, list) or not content[0]:
+                return None, f"Claude response rỗng: {str(data)[:80]}"
+            return content[0].get("text", "").strip(), None
+        except requests.exceptions.Timeout:
+            if attempt == 0:
+                log(f"  ⏳ Claude timeout lần 1 — thử lại...")
+                continue
+            # Lần 2 cũng timeout → dùng fallback, không báo Telegram
+            log(f"  ⚠️ Claude timeout 2 lần — dùng fallback cho {customer_name}")
+            return _FALLBACK, None
+        except Exception as e:
+            log(f"  ⚠️ Claude exception: {e}")
+            tg_alert(f"Claude exception: {e}")
+            return None, str(e)
 
 
 # ============================================================
@@ -918,9 +931,9 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         _lead_store[conv_id] = prev
         lead = prev  # dùng lead đã merge
 
-        # Cooldown 90s — nếu vừa reply conv này thì bỏ qua (tránh gửi 2 lần khi khách nhắn nhanh)
+        # Cooldown 120s — nếu vừa reply conv này thì bỏ qua (tránh gửi 2 lần khi khách nhắn nhanh)
         last_r = _last_replied.get(conv_id)
-        if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 90:
+        if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 120:
             log(f"  ⏳ Cooldown {customer} — vừa reply {int((datetime.now(timezone.utc)-last_r).total_seconds())}s trước")
             _replied_convs[conv_id] = snippet_key
             continue
@@ -964,7 +977,19 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         log(f"  ✓ Linh soạn: {reply[:80]}...")
 
-        # Gửi tin nhắn
+        # Gửi tin nhắn — GSheet distributed lock: chống gửi 2 lần khi 2 Railway instance chạy đồng thời
+        send_lock_key = f"send_{conv_id}_{snippet_key[:25]}"
+        if GSHEET_WEBHOOK:
+            try:
+                if gsheet_check_report(send_lock_key):
+                    log(f"  🔒 GSheet lock: {customer} đã được instance khác gửi rồi — bỏ qua")
+                    _replied_convs[conv_id] = snippet_key
+                    _last_replied[conv_id] = datetime.now(timezone.utc)
+                    continue
+                gsheet_mark_report(send_lock_key)  # đặt cờ TRƯỚC khi gửi
+            except Exception as _ge:
+                log(f"  ⚠️ GSheet lock lỗi: {_ge} — tiếp tục gửi")
+
         result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
         if not isinstance(result, dict):
             result = {}
