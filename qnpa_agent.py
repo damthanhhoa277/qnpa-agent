@@ -781,8 +781,11 @@ def log(msg: str):
 # ============================================================
 # XỬ LÝ DANH SÁCH HỘI THOẠI
 # ============================================================
+MAX_CLAUDE_CALLS_PER_CYCLE = 5  # Tối đa 5 lần gọi Claude mỗi cycle — tránh burst tốn tiền
+
 def process_conv_list(convs: list, source_type: str = "inbox"):
     processed = 0
+    claude_calls_this_cycle = 0
     errors    = []
 
     # Dedup: Pancake đôi khi trả về cùng conv_id 2 lần trong 1 lần poll
@@ -913,7 +916,14 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             elif sheet_action == "updated":
                 _leads_counted.add(conv_id)  # đánh dấu để bỏ qua lần sau trong session này
 
+        # Giới hạn số lần gọi Claude mỗi cycle — tránh burst tốn tiền khi restart
+        if claude_calls_this_cycle >= MAX_CLAUDE_CALLS_PER_CYCLE:
+            log(f"  ⏸ Đạt giới hạn {MAX_CLAUDE_CALLS_PER_CYCLE} Claude calls/cycle — {customer} xử lý cycle sau")
+            _replied_convs.pop(conv_id, None)  # cho phép xử lý cycle sau
+            continue
+
         # Gọi Claude
+        claude_calls_this_cycle += 1
         reply, err = ask_claude(customer, messages)
         if err:
             if "không cần trả lời" in err.lower():
