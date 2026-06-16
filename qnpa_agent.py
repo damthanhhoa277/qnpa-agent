@@ -838,6 +838,22 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         snippet     = c.get("snippet", "")[:120]
         snippet_key = snippet[:60]
 
+        # Lọc conversation cũ — chỉ xử lý nếu có hoạt động trong 30 phút qua
+        # Dùng updated_at vì hoạt động cho cả inbox lẫn comment
+        updated_str = c.get("updated_at") or ""
+        if updated_str:
+            try:
+                upd = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
+                if upd.tzinfo is None:
+                    upd = upd.replace(tzinfo=timezone.utc)
+                age_min = (datetime.now(timezone.utc) - upd).total_seconds() / 60
+                if age_min > 30:
+                    # Conversation cũ hơn 30 phút — bỏ qua, không gọi Claude
+                    _replied_convs[conv_id] = snippet_key  # đánh dấu để skip nhanh hơn
+                    continue
+            except Exception:
+                pass
+
         # Kiểm tra 24h Facebook rule — CHỈ áp dụng cho inbox
         # Comment không dùng last_customer_interactive_at vì trường này trả về ngày đăng bài gốc
         last_active_str = ""
