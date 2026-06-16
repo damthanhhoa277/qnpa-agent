@@ -977,18 +977,21 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         log(f"  ✓ Linh soạn: {reply[:80]}...")
 
-        # Gửi tin nhắn — GSheet distributed lock: chống gửi 2 lần khi 2 Railway instance chạy đồng thời
-        send_lock_key = f"send_{conv_id}_{snippet_key[:25]}"
-        if GSHEET_WEBHOOK:
-            try:
-                if gsheet_check_report(send_lock_key):
-                    log(f"  🔒 GSheet lock: {customer} đã được instance khác gửi rồi — bỏ qua")
-                    _replied_convs[conv_id] = snippet_key
-                    _last_replied[conv_id] = datetime.now(timezone.utc)
-                    continue
-                gsheet_mark_report(send_lock_key)  # đặt cờ TRƯỚC khi gửi
-            except Exception as _ge:
-                log(f"  ⚠️ GSheet lock lỗi: {_ge} — tiếp tục gửi")
+        # ── Pre-send fresh check: gọi Pancake API lấy tin mới nhất ngay trước khi gửi
+        # Đây là lock CHẮC CHẮN nhất — nếu instance khác đã gửi rồi, API sẽ trả về tin của page
+        try:
+            pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=3)
+            if pre_msgs:
+                newest_msg = pre_msgs[-1]  # get_messages trả về oldest-first → [-1] = mới nhất
+                if str(newest_msg.get("from", {}).get("id", "")) == PAGE_ID:
+                    fresh_text = strip_html(newest_msg.get("original_message") or newest_msg.get("message", ""))
+                    if fresh_text[:60] == reply[:60]:
+                        log(f"  🔒 Pre-send: {customer} đã gửi bởi instance khác — bỏ qua")
+                        _replied_convs[conv_id] = snippet_key
+                        _last_replied[conv_id] = datetime.now(timezone.utc)
+                        continue
+        except Exception as _pe:
+            log(f"  ⚠️ Pre-send check lỗi: {_pe} — tiếp tục gửi")
 
         result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
         if not isinstance(result, dict):
