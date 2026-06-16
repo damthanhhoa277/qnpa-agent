@@ -157,6 +157,11 @@ function doPost(e) {
       return ok({ marked: true });
     }
 
+    // Chặn ghi lead không có SĐT — tránh làm bẩn Sheet bằng Cold lead vô nghĩa
+    if (!d.sdt || d.sdt.toString().trim() === "") {
+      return ok({ skipped: "no_phone", conv_key: d.conv_key || "" });
+    }
+
     var sh = getMonthSheet();
     var ck = d.conv_key || "";
     var now    = new Date();
