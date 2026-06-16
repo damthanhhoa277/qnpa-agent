@@ -214,17 +214,24 @@ def tg_send(chat_id, text):
         pass
 
 
-_alert_cache: dict = {}  # key→last_sent datetime — chống spam cùng lỗi
-
 def tg_alert(text):
-    """Cảnh báo lỗi — chỉ gửi 1 lần mỗi 30 phút cho cùng loại lỗi"""
-    key = text[:80]  # dùng 80 ký tự đầu làm key
-    now = datetime.now(timezone.utc)
-    last = _alert_cache.get(key)
-    if last and (now - last).total_seconds() < 1800:
-        log(f"  [alert throttled] {key[:60]}")
-        return
-    _alert_cache[key] = now
+    """Cảnh báo lỗi — dùng Google Sheets throttle, chống spam kể cả 2 Railway instance"""
+    # Key có slot 4 tiếng: mỗi alert chỉ gửi 1 lần/4h xuyên tất cả instance
+    slot = datetime.now(timezone(timedelta(hours=7))).strftime("%Y%m%d%H")[:-1]  # 4h slot
+    alert_key = f"alert_{slot}_{text[:50]}"
+    if GSHEET_WEBHOOK:
+        try:
+            rj = requests.post(GSHEET_WEBHOOK,
+                               json={"action": "check_report", "report_key": alert_key},
+                               timeout=5).json()
+            if isinstance(rj, dict) and rj.get("sent"):
+                log(f"  [alert throttled] {text[:60]}")
+                return
+            requests.post(GSHEET_WEBHOOK,
+                          json={"action": "mark_report", "report_key": alert_key},
+                          timeout=5)
+        except Exception:
+            pass
     tg_send(CHAT_SALE, f"⚠️ {text}")
     tg_send(CHAT_COACHING, f"⚠️ {text}")
 
@@ -664,7 +671,11 @@ def ask_claude(customer_name: str, messages: list):
             else:
                 tg_alert(f"Claude API lỗi {r.status_code}: {err_text[:150]}")
             return None, f"Claude lỗi {r.status_code}"
-        return r.json()["content"][0]["text"].strip(), None
+        data = r.json()
+        content = data.get("content") if isinstance(data, dict) else None
+        if not content or not isinstance(content, list) or not content[0]:
+            return None, f"Claude response rỗng: {str(data)[:80]}"
+        return content[0].get("text", "").strip(), None
     except Exception as e:
         tg_alert(f"Claude exception: {e}")
         return None, str(e)
