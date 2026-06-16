@@ -1137,10 +1137,12 @@ def check_heartbeat():
 
 _agent_start_time = datetime.now(timezone.utc)
 
-def fetch_live_stats():
-    """Lấy số liệu thực từ Pancake API — không phụ thuộc _stats trong bộ nhớ"""
+def fetch_live_stats(target_date=None):
+    """Lấy số liệu thực từ Pancake API — không phụ thuộc _stats trong bộ nhớ.
+    target_date: date object VN, mặc định là hôm nay. Báo cáo 0h truyền vào hôm qua."""
     VN = timezone(timedelta(hours=7))
-    today = datetime.now(VN).date()
+    if target_date is None:
+        target_date = datetime.now(VN).date()
     phone_re = re.compile(r"0\d{9}")
 
     def get_msgs(conv_id, cust_id=None):
@@ -1149,12 +1151,12 @@ def fetch_live_stats():
         try: return requests.get(url, timeout=10).json().get("messages", [])
         except: return []
 
-    def is_today(ts):
+    def is_target_day(ts):
         if not ts: return False
         try:
             t = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
             if t.tzinfo is None: t = t.replace(tzinfo=timezone.utc)
-            return t.astimezone(VN).date() == today
+            return t.astimezone(VN).date() == target_date
         except: return False
 
     inbox_count = 0
@@ -1163,7 +1165,7 @@ def fetch_live_stats():
 
     for c in get_conversations(100, "inbox"):
         if not isinstance(c, dict): continue
-        if not is_today(c.get("last_customer_interactive_at") or c.get("updated_at")): continue
+        if not is_target_day(c.get("last_customer_interactive_at") or c.get("updated_at")): continue
         inbox_count += 1
         conv_id = c.get("id", "")
         cust = (c.get("customers") or [{}])[0]
@@ -1176,7 +1178,7 @@ def fetch_live_stats():
 
     for c in get_conversations(50, "comment"):
         if not isinstance(c, dict): continue
-        if not is_today(c.get("updated_at")): continue
+        if not is_target_day(c.get("updated_at")): continue
         comment_count += 1
         conv_id = c.get("id", "")
         cust = (c.get("customers") or [{}])[0]
@@ -1217,15 +1219,17 @@ def check_and_send_daily_report():
     elif h == 15:
         _report_sent["midday"] = False
 
-    # ── Báo cáo 0h ──
+    # ── Báo cáo 0h — tổng kết NGÀY HÔM QUA (vì 0h là đầu ngày mới) ──
     if h == 0 and m == 0 and not _report_sent["midnight"]:
-        _report_sent["midnight"] = True  # block ngay trong session
-        key = f"midnight_{VN_date}"
+        _report_sent["midnight"] = True
+        VN = timezone(timedelta(hours=7))
+        yesterday = (datetime.now(VN) - timedelta(days=1)).date()
+        key = f"midnight_{yesterday.strftime('%d/%m/%Y')}"
         if not gsheet_check_report(key):
-            gsheet_mark_report(key)    # đánh dấu TRƯỚC khi gửi
-            live = fetch_live_stats()
+            gsheet_mark_report(key)
+            live = fetch_live_stats(target_date=yesterday)  # lấy dữ liệu hôm qua
             tg_report_24h_live(live)
-            log(f"📊 Đã gửi tổng kết ngày (0h) — {len(live['leads'])} leads")
+            log(f"📊 Đã gửi tổng kết ngày {yesterday} — {len(live['leads'])} leads")
         _human_sent_tracked.clear()
         save_human_sent()
 
