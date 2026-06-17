@@ -438,6 +438,18 @@ def extract_lead_info(messages, customer_name: str) -> dict:
     elif any(k in all_customer_text for k in no_kw):
         lead["pickleball"] = "Chưa học"
 
+    # Nhu cầu chính — khớp với dropdown Sheet
+    if any(k in all_customer_text for k in ["trại hè", "trai he", "hè", "mùa hè", "camp"]):
+        lead["nhu_cau"] = "Trại hè"
+    elif any(k in all_customer_text for k in ["nâng cao", "nang cao", "advanced", "chơi rồi", "đã chơi"]):
+        lead["nhu_cau"] = "Khóa nâng cao"
+    elif any(k in all_customer_text for k in ["học thử", "hoc thu", "thử", "trải nghiệm", "trai nghiem"]):
+        lead["nhu_cau"] = "Học thử"
+    elif any(k in all_customer_text for k in ["cơ bản", "co ban", "mới học", "bắt đầu", "từ đầu"]):
+        lead["nhu_cau"] = "Khóa cơ bản"
+    else:
+        lead["nhu_cau"] = "Chưa rõ"
+
     return lead
 
 
@@ -457,6 +469,7 @@ def gsheet_upsert_lead(lead: dict, source_type: str = "inbox") -> str:
             "khu_vuc"     : lead.get("area", ""),
             "pickleball"  : lead.get("pickleball", ""),
             "sdt"         : lead.get("phone", ""),
+            "nhu_cau"     : lead.get("nhu_cau", "Chưa rõ"),
             "nguon"       : "Facebook Fanpage" if source_type == "inbox" else "Fanpage Comment",
             "tinh_trang"  : "Mới tạo",
         }
