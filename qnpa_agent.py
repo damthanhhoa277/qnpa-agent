@@ -1021,40 +1021,44 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         # ── Anti-duplicate: random sleep + double Pancake check trước khi gửi ──
         # Nếu 2 instance cùng soạn xong: instance nào ngủ ít hơn sẽ gửi trước,
         # instance còn lại thức dậy thấy page đã gửi rồi → bỏ qua.
+        # ── Anti-duplicate: sleep ngẫu nhiên rộng + 3 lần check Pancake ──
+        # Instance nào ngủ ít hơn sẽ gửi trước; instance còn lại check lần 2/3 thấy page đã gửi → bỏ qua
         import random as _rnd
-        _jitter = 2.0 + _rnd.uniform(0, 3.0)   # ngủ 2–5s ngẫu nhiên
-        log(f"  ⏱ Anti-dup sleep {_jitter:.1f}s trước khi gửi...")
-        time.sleep(_jitter)
 
-        # Check Pancake: nếu tin CUỐI CÙNG là từ page (tức là page vừa reply rồi) → bỏ qua
-        # Chỉ check tin cuối, KHÔNG check time range — tránh false-positive khi khách nhắn lại
         def _last_msg_is_from_page(msgs):
             if not msgs:
                 return False
-            newest = msgs[-1]  # get_messages trả về oldest-first
-            return str(newest.get("from", {}).get("id", "")) == PAGE_ID
+            return str(msgs[-1].get("from", {}).get("id", "")) == PAGE_ID
 
-        try:
-            pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=5)
-            if _last_msg_is_from_page(pre_msgs):
-                log(f"  🔒 Pre-send check 1: {customer} — tin cuối là của page, bỏ qua")
-                _replied_convs[conv_id] = snippet_key
-                _last_replied[conv_id] = datetime.now(timezone.utc)
-                continue
-        except Exception as _pe:
-            log(f"  ⚠️ Pre-send check 1 lỗi: {_pe} — tiếp tục")
+        def _pancake_check(label):
+            try:
+                _msgs = get_messages(conv_id, customer_id=customer_id, limit=5)
+                if _last_msg_is_from_page(_msgs):
+                    log(f"  🔒 {label}: {customer} — page đã reply, bỏ qua")
+                    _replied_convs[conv_id] = snippet_key
+                    _last_replied[conv_id] = datetime.now(timezone.utc)
+                    return True
+            except Exception as _e:
+                log(f"  ⚠️ {label} lỗi: {_e}")
+            return False
 
-        # Check lần 2 (0.5s sau) — lưới an toàn cuối cùng
-        time.sleep(0.5)
-        try:
-            pre_msgs2 = get_messages(conv_id, customer_id=customer_id, limit=5)
-            if _last_msg_is_from_page(pre_msgs2):
-                log(f"  🔒 Pre-send check 2: {customer} — tin cuối là của page, bỏ qua")
-                _replied_convs[conv_id] = snippet_key
-                _last_replied[conv_id] = datetime.now(timezone.utc)
-                continue
-        except Exception as _pe2:
-            log(f"  ⚠️ Pre-send check 2 lỗi: {_pe2} — tiếp tục gửi")
+        # Check lần 1 trước khi ngủ
+        if _pancake_check("Pre-send #1"):
+            continue
+
+        # Ngủ random 3–8s — khoảng rộng để 2 instance không trùng nhau
+        _jitter = 3.0 + _rnd.uniform(0, 5.0)
+        log(f"  ⏱ Anti-dup sleep {_jitter:.1f}s...")
+        time.sleep(_jitter)
+
+        # Check lần 2 sau khi ngủ — nếu instance kia đã gửi trong lúc ta ngủ
+        if _pancake_check("Pre-send #2"):
+            continue
+
+        # Sleep thêm 1s cố định rồi check lần 3 — lưới cuối cùng
+        time.sleep(1.0)
+        if _pancake_check("Pre-send #3"):
+            continue
 
         result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
         if not isinstance(result, dict):
