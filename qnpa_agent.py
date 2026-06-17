@@ -708,6 +708,28 @@ def ask_claude(customer_name: str, messages: list):
 
 
 # ============================================================
+# INSTANCE ID — unique mỗi lần khởi động, dùng cho GSheet conv lock
+# ============================================================
+import uuid as _uuid
+INSTANCE_ID = _uuid.uuid4().hex[:8]
+
+def gsheet_claim_conv(conv_id: str, snippet_key: str) -> bool:
+    """Atomic lock qua GSheet LockService. True = mình được xử lý. False = instance khác đang xử lý."""
+    if not GSHEET_WEBHOOK:
+        return True  # không có webhook → không lock, cứ tiếp tục
+    lock_key = f"conv_{conv_id}_{snippet_key[:20]}"
+    try:
+        r = requests.post(GSHEET_WEBHOOK, json={
+            "action"      : "claim_conv",
+            "lock_key"    : lock_key,
+            "instance_id" : INSTANCE_ID,
+        }, timeout=7)
+        return r.json().get("claimed", True)
+    except Exception as _e:
+        log(f"  ⚠️ claim_conv lỗi: {_e} — tiếp tục không lock")
+        return True
+
+# ============================================================
 # TRẠNG THÁI SESSION
 # ============================================================
 _replied_convs: dict = {}   # conv_id → snippet đã trả lời (reset khi có tin mới)
@@ -948,6 +970,12 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         last_r = _last_replied.get(conv_id)
         if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 120:
             log(f"  ⏳ Cooldown {customer} — vừa reply {int((datetime.now(timezone.utc)-last_r).total_seconds())}s trước")
+            _replied_convs[conv_id] = snippet_key
+            continue
+
+        # ── GSheet Atomic Lock (LockService) — chỉ 1 instance được xử lý conv này ──
+        if not gsheet_claim_conv(conv_id, snippet_key):
+            log(f"  🔒 {customer} — instance khác đang xử lý, bỏ qua")
             _replied_convs[conv_id] = snippet_key
             continue
 

@@ -143,10 +143,47 @@ function markReportSent(reportKey) {
   sh.appendRow([reportKey, today]);
 }
 
+// ── Atomic conv lock — LockService đảm bảo chỉ 1 instance xử lý mỗi conv ──────
+function claimConv(lockKey, instanceId) {
+  var scriptLock = LockService.getScriptLock();
+  try {
+    scriptLock.waitLock(4000);   // chờ tối đa 4s để lấy lock
+  } catch(e) {
+    return ok({ claimed: false, by: "lock_timeout" });
+  }
+  try {
+    var sh  = getConfigSheet();
+    var now = new Date();
+    var data = sh.getDataRange().getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (data[i][0] === lockKey) {
+        // Đã có rồi — kiểm tra có hết hạn chưa (10 phút)
+        var lockTime = data[i][2] ? new Date(data[i][2]) : new Date(0);
+        if ((now - lockTime) < 600000) {
+          return ok({ claimed: false, by: String(data[i][1]) });
+        }
+        // Hết hạn → ghi đè
+        sh.getRange(i + 1, 1, 1, 3).setValues([[lockKey, instanceId, now.toISOString()]]);
+        return ok({ claimed: true, by: instanceId });
+      }
+    }
+    // Chưa có → tạo mới
+    sh.appendRow([lockKey, instanceId, now.toISOString()]);
+    return ok({ claimed: true, by: instanceId });
+  } finally {
+    scriptLock.releaseLock();
+  }
+}
+
 // ── Nhận dữ liệu từ Agent (POST) ─────────────────────────────
 function doPost(e) {
   try {
     var d  = JSON.parse(e.postData.contents);
+
+    // ── Atomic conversation lock — dùng LockService, chống 2 instance gửi cùng lúc ──
+    if (d.action === "claim_conv") {
+      return claimConv(d.lock_key, d.instance_id);
+    }
 
     // Xử lý report flag
     if (d.action === "check_report") {
