@@ -968,7 +968,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         # Cooldown 120s — nếu vừa reply conv này thì bỏ qua (tránh gửi 2 lần khi khách nhắn nhanh)
         last_r = _last_replied.get(conv_id)
-        if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 120:
+        if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 300:
             log(f"  ⏳ Cooldown {customer} — vừa reply {int((datetime.now(timezone.utc)-last_r).total_seconds())}s trước")
             _replied_convs[conv_id] = snippet_key
             continue
@@ -1018,21 +1018,49 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         log(f"  ✓ Linh soạn: {reply[:80]}...")
 
-        # ── Pre-send fresh check: gọi Pancake API lấy tin mới nhất ngay trước khi gửi
-        # Đây là lock CHẮC CHẮN nhất — nếu instance khác đã gửi rồi, API sẽ trả về tin của page
+        # ── Anti-duplicate: random sleep + double Pancake check trước khi gửi ──
+        # Nếu 2 instance cùng soạn xong: instance nào ngủ ít hơn sẽ gửi trước,
+        # instance còn lại thức dậy thấy page đã gửi rồi → bỏ qua.
+        import random as _rnd
+        _jitter = 2.0 + _rnd.uniform(0, 3.0)   # ngủ 2–5s ngẫu nhiên
+        log(f"  ⏱ Anti-dup sleep {_jitter:.1f}s trước khi gửi...")
+        time.sleep(_jitter)
+
+        # Check Pancake lần 1 (sau khi ngủ) — nếu page đã gửi bất kỳ tin nào trong 5 phút qua → bỏ qua
+        def _page_sent_recently(msgs, minutes=5):
+            cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+            for m in reversed(msgs):
+                if str(m.get("from", {}).get("id", "")) == PAGE_ID:
+                    ts_raw = m.get("created_at") or m.get("timestamp") or ""
+                    try:
+                        ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+                        if ts > cutoff:
+                            return True
+                    except Exception:
+                        return True  # không parse được → cứ coi là mới để an toàn
+            return False
+
         try:
-            pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=3)
-            if pre_msgs:
-                newest_msg = pre_msgs[-1]  # get_messages trả về oldest-first → [-1] = mới nhất
-                if str(newest_msg.get("from", {}).get("id", "")) == PAGE_ID:
-                    fresh_text = strip_html(newest_msg.get("original_message") or newest_msg.get("message", ""))
-                    if fresh_text[:60] == reply[:60]:
-                        log(f"  🔒 Pre-send: {customer} đã gửi bởi instance khác — bỏ qua")
-                        _replied_convs[conv_id] = snippet_key
-                        _last_replied[conv_id] = datetime.now(timezone.utc)
-                        continue
+            pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=5)
+            if pre_msgs and _page_sent_recently(pre_msgs):
+                log(f"  🔒 Pre-send check 1: {customer} — page đã gửi trong 5 phút, bỏ qua")
+                _replied_convs[conv_id] = snippet_key
+                _last_replied[conv_id] = datetime.now(timezone.utc)
+                continue
         except Exception as _pe:
-            log(f"  ⚠️ Pre-send check lỗi: {_pe} — tiếp tục gửi")
+            log(f"  ⚠️ Pre-send check 1 lỗi: {_pe} — tiếp tục")
+
+        # Check Pancake lần 2 (0.5s sau) — lưới an toàn cuối cùng
+        time.sleep(0.5)
+        try:
+            pre_msgs2 = get_messages(conv_id, customer_id=customer_id, limit=5)
+            if pre_msgs2 and _page_sent_recently(pre_msgs2):
+                log(f"  🔒 Pre-send check 2: {customer} — page đã gửi, bỏ qua")
+                _replied_convs[conv_id] = snippet_key
+                _last_replied[conv_id] = datetime.now(timezone.utc)
+                continue
+        except Exception as _pe2:
+            log(f"  ⚠️ Pre-send check 2 lỗi: {_pe2} — tiếp tục gửi")
 
         result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
         if not isinstance(result, dict):
