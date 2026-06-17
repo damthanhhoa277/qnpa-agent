@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thư Viện Tinh Hoa Tri Thức</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f0f2f5;font-family:'Segoe UI',Arial,sans-serif;min-height:100vh;padding:32px 16px 48px}
+
+/* Header */
+.lib-header{text-align:center;margin-bottom:36px}
+.lib-logo{font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#888;margin-bottom:8px}
+.lib-title{font-size:28px;font-weight:800;color:#1a1a2e;margin-bottom:6px}
+.lib-sub{font-size:14px;color:#666}
+.lib-count{display:inline-block;background:#1a1a2e;color:#fff;font-size:12px;
+           padding:4px 14px;border-radius:20px;margin-top:10px;letter-spacing:1px}
+
+/* Search */
+.search-bar{display:flex;justify-content:center;margin-bottom:28px}
+.search-bar input{width:380px;max-width:90vw;padding:10px 18px;border:2px solid #ddd;
+                  border-radius:30px;font-size:14px;outline:none;color:#333;
+                  transition:border .2s}
+.search-bar input:focus{border-color:#1a1a2e}
+
+/* Grid */
+.book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+           gap:20px;max-width:1100px;margin:0 auto}
+
+/* Book card */
+.book-card{background:#fff;border-radius:10px;overflow:hidden;
+           box-shadow:0 2px 10px rgba(0,0,0,.08);
+           cursor:pointer;transition:transform .18s,box-shadow .18s;
+           text-decoration:none;display:flex;flex-direction:column}
+.book-card:hover{transform:translateY(-5px);box-shadow:0 8px 24px rgba(0,0,0,.14)}
+
+.book-spine{height:8px;flex-shrink:0}
+.book-cover{padding:22px 18px 16px;flex:1;display:flex;flex-direction:column}
+.book-icon{font-size:32px;margin-bottom:10px}
+.book-num{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+          margin-bottom:6px;opacity:.7}
+.book-title{font-size:14px;font-weight:700;color:#1a1a2e;line-height:1.45;flex:1;margin-bottom:12px}
+.book-footer{display:flex;justify-content:space-between;align-items:center;
+             padding-top:10px;border-top:1px solid #f0f0f0}
+.book-pages{font-size:11px;color:#999}
+.book-open{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+
+/* Footer */
+.lib-footer{text-align:center;margin-top:48px;color:#aaa;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="lib-header">
+  <div class="lib-logo">QNPA Pickleball Academy</div>
+  <div class="lib-title">📚 Thư Viện Tinh Hoa Tri Thức</div>
+  <div class="lib-sub">Tổng hợp tri thức từ các khóa học — áp dụng vào kinh doanh pickleball</div>
+  <div class="lib-count" id="total-count">14 cuốn sách</div>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="search-input" placeholder="🔍  Tìm kiếm tên sách..." oninput="filterBooks()">
+</div>
+
+<div class="book-grid" id="book-grid">
+
+  <a class="book-card" href="02-email-marketing-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#d81b60"></div>
+    <div class="book-cover">
+      <div class="book-icon">📧</div>
+      <div class="book-num" style="color:#d81b60">02</div>
+      <div class="book-title">Email Marketing Chuyên Nghiệp</div>
+      <div class="book-footer">
+        <span class="book-pages">161 trang</span>
+        <span class="book-open" style="color:#d81b60">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="03-ips-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#ef6c00"></div>
+    <div class="book-cover">
+      <div class="book-icon">🏗️</div>
+      <div class="book-num" style="color:#ef6c00">03</div>
+      <div class="book-title">IPS – Hệ Thống Kinh Doanh 7 Tầng</div>
+      <div class="book-footer">
+        <span class="book-pages">253 trang</span>
+        <span class="book-open" style="color:#ef6c00">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="03-viet-hay-hay-viet-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#388e3c"></div>
+    <div class="book-cover">
+      <div class="book-icon">✍️</div>
+      <div class="book-num" style="color:#388e3c">03</div>
+      <div class="book-title">Viết Hay – Hay Viết</div>
+      <div class="book-footer">
+        <span class="book-pages">101 trang</span>
+        <span class="book-open" style="color:#388e3c">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="04-ban-hang-gia-cao-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#f57f17"></div>
+    <div class="book-cover">
+      <div class="book-icon">💎</div>
+      <div class="book-num" style="color:#f57f17">04</div>
+      <div class="book-title">Bán Hàng Giá Cao</div>
+      <div class="book-footer">
+        <span class="book-pages">54 trang</span>
+        <span class="book-open" style="color:#f57f17">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="05-30-tuyet-chieu-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#e53935"></div>
+    <div class="book-cover">
+      <div class="book-icon">🥊</div>
+      <div class="book-num" style="color:#e53935">05</div>
+      <div class="book-title">30 Tuyệt Chiêu Bán Hàng</div>
+      <div class="book-footer">
+        <span class="book-pages">58 trang</span>
+        <span class="book-open" style="color:#e53935">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="05-video-marketing-28-ngay-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#0097a7"></div>
+    <div class="book-cover">
+      <div class="book-icon">🎬</div>
+      <div class="book-num" style="color:#0097a7">05</div>
+      <div class="book-title">Video Marketing 28 Ngày</div>
+      <div class="book-footer">
+        <span class="book-pages">64 trang</span>
+        <span class="book-open" style="color:#0097a7">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="06-sales-success-system-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#7b1fa2"></div>
+    <div class="book-cover">
+      <div class="book-icon">🚀</div>
+      <div class="book-num" style="color:#7b1fa2">06</div>
+      <div class="book-title">Sales Success System</div>
+      <div class="book-footer">
+        <span class="book-pages">295 trang</span>
+        <span class="book-open" style="color:#7b1fa2">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="08-money-counts-live-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#1565c0"></div>
+    <div class="book-cover">
+      <div class="book-icon">💰</div>
+      <div class="book-num" style="color:#1565c0">08</div>
+      <div class="book-title">Money Counts Live – Kiếm Tiền Trên Internet</div>
+      <div class="book-footer">
+        <span class="book-pages">227 trang</span>
+        <span class="book-open" style="color:#1565c0">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="08-quan-tri-cam-xuc-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#4527a0"></div>
+    <div class="book-cover">
+      <div class="book-icon">🧠</div>
+      <div class="book-num" style="color:#4527a0">08</div>
+      <div class="book-title">Quản Trị Cảm Xúc</div>
+      <div class="book-footer">
+        <span class="book-pages">39 trang</span>
+        <span class="book-open" style="color:#4527a0">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="09-thuong-hieu-ca-nhan-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#6a1b9a"></div>
+    <div class="book-cover">
+      <div class="book-icon">⭐</div>
+      <div class="book-num" style="color:#6a1b9a">09</div>
+      <div class="book-title">Xây Dựng Thương Hiệu Cá Nhân</div>
+      <div class="book-footer">
+        <span class="book-pages">36 trang</span>
+        <span class="book-open" style="color:#6a1b9a">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="10-tuyet-chieu-dam-phan-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#f9a825"></div>
+    <div class="book-cover">
+      <div class="book-icon">🤝</div>
+      <div class="book-num" style="color:#f9a825">10</div>
+      <div class="book-title">Tuyệt Chiêu Đàm Phán</div>
+      <div class="book-footer">
+        <span class="book-pages">48 trang</span>
+        <span class="book-open" style="color:#f9a825">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="11-hanh-trinh-but-pha-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#00838f"></div>
+    <div class="book-cover">
+      <div class="book-icon">⚡</div>
+      <div class="book-num" style="color:#00838f">11</div>
+      <div class="book-title">Hành Trình Bứt Phá</div>
+      <div class="book-footer">
+        <span class="book-pages">75 trang</span>
+        <span class="book-open" style="color:#00838f">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="12-to-chuc-doi-nhom-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#00695c"></div>
+    <div class="book-cover">
+      <div class="book-icon">👥</div>
+      <div class="book-num" style="color:#00695c">12</div>
+      <div class="book-title">Tổ Chức Đội Nhóm</div>
+      <div class="book-footer">
+        <span class="book-pages">34 trang</span>
+        <span class="book-open" style="color:#00695c">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="book-card" href="13-sat-thu-livestream-FULL.html" target="_blank">
+    <div class="book-spine" style="background:#c62828"></div>
+    <div class="book-cover">
+      <div class="book-icon">🎥</div>
+      <div class="book-num" style="color:#c62828">13</div>
+      <div class="book-title">Sát Thủ Livestream</div>
+      <div class="book-footer">
+        <span class="book-pages">65 trang</span>
+        <span class="book-open" style="color:#c62828">Mở →</span>
+      </div>
+    </div>
+  </a>
+
+</div>
+
+<div class="lib-footer">
+  QNPA Pickleball Academy · Thư viện nội bộ · <span id="year"></span>
+</div>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+function filterBooks() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const cards = document.querySelectorAll('.book-card');
+  let visible = 0;
+  cards.forEach(card => {
+    const title = card.querySelector('.book-title').textContent.toLowerCase();
+    const show = !q || title.includes(q);
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('total-count').textContent = visible + ' cuốn sách';
+}
+</script>
+</body>
+</html>
