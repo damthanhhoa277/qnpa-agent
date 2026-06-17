@@ -968,7 +968,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         # Cooldown 120s — nếu vừa reply conv này thì bỏ qua (tránh gửi 2 lần khi khách nhắn nhanh)
         last_r = _last_replied.get(conv_id)
-        if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 300:
+        if last_r and (datetime.now(timezone.utc) - last_r).total_seconds() < 120:
             log(f"  ⏳ Cooldown {customer} — vừa reply {int((datetime.now(timezone.utc)-last_r).total_seconds())}s trước")
             _replied_convs[conv_id] = snippet_key
             continue
@@ -1026,36 +1026,30 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         log(f"  ⏱ Anti-dup sleep {_jitter:.1f}s trước khi gửi...")
         time.sleep(_jitter)
 
-        # Check Pancake lần 1 (sau khi ngủ) — nếu page đã gửi bất kỳ tin nào trong 5 phút qua → bỏ qua
-        def _page_sent_recently(msgs, minutes=5):
-            cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
-            for m in reversed(msgs):
-                if str(m.get("from", {}).get("id", "")) == PAGE_ID:
-                    ts_raw = m.get("created_at") or m.get("timestamp") or ""
-                    try:
-                        ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-                        if ts > cutoff:
-                            return True
-                    except Exception:
-                        return True  # không parse được → cứ coi là mới để an toàn
-            return False
+        # Check Pancake: nếu tin CUỐI CÙNG là từ page (tức là page vừa reply rồi) → bỏ qua
+        # Chỉ check tin cuối, KHÔNG check time range — tránh false-positive khi khách nhắn lại
+        def _last_msg_is_from_page(msgs):
+            if not msgs:
+                return False
+            newest = msgs[-1]  # get_messages trả về oldest-first
+            return str(newest.get("from", {}).get("id", "")) == PAGE_ID
 
         try:
             pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=5)
-            if pre_msgs and _page_sent_recently(pre_msgs):
-                log(f"  🔒 Pre-send check 1: {customer} — page đã gửi trong 5 phút, bỏ qua")
+            if _last_msg_is_from_page(pre_msgs):
+                log(f"  🔒 Pre-send check 1: {customer} — tin cuối là của page, bỏ qua")
                 _replied_convs[conv_id] = snippet_key
                 _last_replied[conv_id] = datetime.now(timezone.utc)
                 continue
         except Exception as _pe:
             log(f"  ⚠️ Pre-send check 1 lỗi: {_pe} — tiếp tục")
 
-        # Check Pancake lần 2 (0.5s sau) — lưới an toàn cuối cùng
+        # Check lần 2 (0.5s sau) — lưới an toàn cuối cùng
         time.sleep(0.5)
         try:
             pre_msgs2 = get_messages(conv_id, customer_id=customer_id, limit=5)
-            if pre_msgs2 and _page_sent_recently(pre_msgs2):
-                log(f"  🔒 Pre-send check 2: {customer} — page đã gửi, bỏ qua")
+            if _last_msg_is_from_page(pre_msgs2):
+                log(f"  🔒 Pre-send check 2: {customer} — tin cuối là của page, bỏ qua")
                 _replied_convs[conv_id] = snippet_key
                 _last_replied[conv_id] = datetime.now(timezone.utc)
                 continue
