@@ -871,9 +871,9 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 if upd.tzinfo is None:
                     upd = upd.replace(tzinfo=timezone.utc)
                 age_min = (datetime.now(timezone.utc) - upd).total_seconds() / 60
-                if age_min > 30:
-                    # Conversation cũ hơn 30 phút — bỏ qua, không gọi Claude
-                    _replied_convs[conv_id] = snippet_key  # đánh dấu để skip nhanh hơn
+                max_age = 30 if source_type == "inbox" else 360  # inbox: 30 phút | comment: 6 tiếng
+                if age_min > max_age:
+                    _replied_convs[conv_id] = snippet_key
                     continue
             except Exception:
                 pass
@@ -1109,6 +1109,31 @@ def process_followups():
             continue
 
         script = _FOLLOWUP_SCRIPTS[tier].format(name=name)
+
+        # GSheet lock — chống 3 instance cùng gửi followup cho 1 khách
+        fu_key = f"fu_{conv_id}_{tier}_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+        if GSHEET_WEBHOOK:
+            try:
+                if gsheet_check_report(fu_key):
+                    log(f"  🔒 Followup {tier} → {name} đã gửi bởi instance khác")
+                    info[f"f{tier}"] = True
+                    continue
+                gsheet_mark_report(fu_key)
+            except Exception:
+                pass
+
+        # Pre-send Pancake check — chắc chắn nhất
+        try:
+            pre = get_messages(conv_id, customer_id=cid, limit=3)
+            if pre and str(pre[-1].get("from", {}).get("id", "")) == PAGE_ID:
+                fresh = strip_html(pre[-1].get("original_message") or pre[-1].get("message", ""))
+                if fresh[:60] == script[:60]:
+                    log(f"  🔒 Pre-send followup {tier} → {name} đã gửi rồi")
+                    info[f"f{tier}"] = True
+                    continue
+        except Exception:
+            pass
+
         result = send_message(conv_id, script, customer_id=cid)
         ok = result.get("dry_run") or result.get("success") or result.get("message_id") or result.get("id")
         if ok:
@@ -1236,10 +1261,10 @@ def check_and_send_daily_report():
 
     # ── Báo cáo 14h ──
     if h == 14 and m == 0 and not _report_sent["midday"]:
-        _report_sent["midday"] = True  # block ngay trong session — tránh gửi nhiều lần trong cùng phút
+        _report_sent["midday"] = True  # in-memory block trong session
         key = f"midday_{VN_date}"
         if not gsheet_check_report(key):
-            gsheet_mark_report(key)    # đánh dấu TRƯỚC khi gửi — chống race condition 2 instance
+            gsheet_mark_report(key)
             live = fetch_live_stats()
             tg_report_14h_live(live)
             log(f"📊 Đã gửi báo cáo giữa ngày (14h) — {len(live['leads'])} leads")
