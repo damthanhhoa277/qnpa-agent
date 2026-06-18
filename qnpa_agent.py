@@ -486,7 +486,7 @@ def gsheet_upsert_lead(lead: dict, source_type: str = "inbox") -> str:
             return "error"
     except Exception as e:
         log(f"  ⚠️ Lỗi ghi Sheet: {e}")
-        return "error"
+        return "updated"  # fail safe: lỗi = coi như đã có, không gửi HOT LEAD trùng
 
 # ============================================================
 # CLAUDE AI
@@ -732,8 +732,8 @@ def gsheet_claim_conv(conv_id: str, snippet_key: str) -> bool:
         }, timeout=7)
         return r.json().get("claimed", True)
     except Exception as _e:
-        log(f"  ⚠️ claim_conv lỗi: {_e} — tiếp tục không lock")
-        return True
+        log(f"  ⚠️ claim_conv lỗi: {_e} — bỏ qua để tránh lặp")
+        return False  # fail closed: không chắc → không xử lý, cycle sau thử lại
 
 # ============================================================
 # TRẠNG THÁI SESSION
@@ -992,7 +992,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         phone_detected = lead.get("phone", "")
         if phone_detected:
             sheet_action = gsheet_upsert_lead(lead, source_type)
-            # Chỉ gửi HOT LEAD nếu Sheet xác nhận lead MỚI (inserted) — không phải update cũ
+            # Chỉ gửi HOT LEAD nếu Sheet xác nhận lead MỚI (inserted) — error = coi như updated, không gửi alert trùng
             if sheet_action == "inserted" and conv_id not in _leads_counted:
                 _leads_counted.add(conv_id)
                 _stats["leads"] += 1

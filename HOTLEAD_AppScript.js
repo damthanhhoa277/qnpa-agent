@@ -1,332 +1,181 @@
-// QNPA Lead Logger — Google Apps Script v3.0
-// Cột mới chuẩn 2026 — tự tạo sheet theo tháng
-// Deploy: Extensions → Apps Script → paste → Save → Deploy as Web App → Anyone
+// QNPA Agent — Google Apps Script Webhook
+// Deploy: Extensions → Apps Script → Deploy → New deployment → Web App → Execute as Me → Anyone
+// Paste URL vào GSHEET_WEBHOOK trong qnpa_agent.py
 
-var THANG_VI = ["","THÁNG 1","THÁNG 2","THÁNG 3","THÁNG 4","THÁNG 5",
-                "THÁNG 6","THÁNG 7","THÁNG 8","THÁNG 9","THÁNG 10","THÁNG 11","THÁNG 12"];
+const SHEET_NAME_LEADS  = "LEAD THÁNG 6";
+const SHEET_NAME_LOCKS  = "_locks";       // sheet ẩn để lưu claim_conv + report marks
+const COL_CONV_KEY      = 1;              // cột A = conv_key (ID duy nhất, không trùng)
+const COL_CREATED       = 2;             // B = ngày tạo
+const COL_TIME          = 3;             // C = giờ tạo
+const COL_NAME          = 4;             // D = tên KH
+const COL_STUDENT       = 5;            // E = học viên
+const COL_AGE           = 6;             // F = tuổi
+const COL_AREA          = 7;             // G = khu vực
+const COL_PICKLEBALL    = 8;            // H = đã chơi PB chưa
+const COL_PHONE         = 9;             // I = SĐT
+const COL_SOURCE        = 10;            // J = nguồn
+const COL_STATUS        = 11;           // K = tình trạng lead
 
-var HEADERS = [
-  "STT",                        // A  1
-  "Ngày tạo Lead",              // B  2
-  "Thời gian tạo Lead",         // C  3
-  "Tên khách hàng",             // D  4
-  "Số điện thoại",              // E  5
-  "Tên học viên",               // F  6
-  "Tuổi học viên",              // G  7
-  "Khu vực",                    // H  8
-  "Đã chơi Pickleball chưa?",   // I  9
-  "Nguồn Lead",                 // J  10
-  "Nhu cầu chính",              // K  11
-  "Mức độ quan tâm",            // L  12
-  "Tình trạng Lead",            // M  13
-  "Ngày gọi lần 1",             // N  14
-  "Kết quả gọi lần 1",          // O  15
-  "Ngày gọi lần 2",             // P  16
-  "Kết quả gọi lần 2",          // Q  17
-  "Ngày gọi lần 3",             // R  18
-  "Kết quả gọi lần 3",          // S  19
-  "Ngày gọi lần 4",             // T  20
-  "Kết quả gọi lần 4",          // U  21
-  "Ngày gọi lần 5",             // V  22
-  "Kết quả gọi lần 5",          // W  23
-  "Người phụ trách",            // X  24
-  "Ngày đăng ký học thử",       // Y  25
-  "conv_key"                    // Z  26 — ẩn, dùng để upsert
-];
-
-// Số thứ tự cột — tham khảo khi cần
-// A=1 STT, B=2 Ngày, C=3 Giờ, D=4 Tên, E=5 SĐT, F=6 HV, G=7 Tuổi
-// H=8 KV, I=9 PB, J=10 Nguồn, K=11 NhuCầu, L=12 MứcĐộ, M=13 TT
-// N-W=14-23 Gọi 1-5 + KQ, X=24 PhụTrách, Y=25 NgàyTest, Z=26 conv_key
-
-var DROPDOWN = {
-  PICKLEBALL  : ["Chưa từng", "Mới chơi", "Đang chơi"],
-  NGUON       : ["Facebook Ads", "Fanpage", "Zalo/Hotline", "Giới thiệu", "Khác"],
-  NHU_CAU     : ["Trại hè", "Khóa cơ bản", "Khóa nâng cao", "Học thử", "Chưa rõ"],
-  MUC_DO      : ["🔥 Hot", "🌡 Warm", "❄ Cold"],
-  TINH_TRANG  : ["Mới tạo","Đang tư vấn","Đã liên hệ","Hẹn học thử",
-                 "Đã đăng ký","Không liên lạc được","Từ chối"]
-};
-
-// ── Lấy/tạo sheet tháng hiện tại ──────────────────────────────
-function getMonthSheet() {
-  var name = "LEAD " + THANG_VI[new Date().getMonth() + 1];
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(name);
-  if (!sh) { sh = ss.insertSheet(name); setupHeaders(sh); }
-  return sh;
-}
-
-function setupHeaders(sh) {
-  var ncol = HEADERS.length;
-  var hr   = sh.getRange(1, 1, 1, ncol);
-  hr.setValues([HEADERS]);
-  hr.setBackground("#1a73e8").setFontColor("#ffffff")
-    .setFontWeight("bold").setFontSize(10)
-    .setHorizontalAlignment("center").setVerticalAlignment("middle");
-  sh.setFrozenRows(1);
-  sh.setRowHeight(1, 40);
-
-  // Độ rộng cột
-  var widths = [40,90,90,150,110,130,70,110,140,120,130,110,150,
-                90,180,90,180,90,180,90,180,90,180,130,110,1];
-  for (var i = 0; i < widths.length; i++)
-    sh.setColumnWidth(i + 1, widths[i]);
-
-  // Dropdown 500 dòng
-  var rows = 500;
-  function dd(col, opts) {
-    sh.getRange(2, col, rows, 1)
-      .setDataValidation(SpreadsheetApp.newDataValidation()
-        .requireValueInList(opts, true).setAllowInvalid(false).build());
-  }
-  dd(9,  DROPDOWN.PICKLEBALL);
-  dd(10, DROPDOWN.NGUON);
-  dd(11, DROPDOWN.NHU_CAU);
-  dd(12, DROPDOWN.MUC_DO);
-  dd(13, DROPDOWN.TINH_TRANG);
-
-  // Banded rows
-  try {
-    sh.getBandedRanges().forEach(function(b) { b.remove(); });
-    sh.getRange(2,1,rows,ncol).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY);
-  } catch(e) {}
-}
-
-// ── Tìm dòng theo conv_key ────────────────────────────────────
-function findRow(sh, ck) {
-  var last = sh.getLastRow();
-  if (last < 2 || !ck) return -1;
-  var keys = sh.getRange(2, 26, last-1, 1).getValues();
-  for (var i = 0; i < keys.length; i++)
-    if (keys[i][0] === ck) return i + 2;
-  return -1;
-}
-
-// ── Tính mức độ quan tâm tự động ─────────────────────────────
-function autoMucDo(sdt, tuoi, khu_vuc, pickleball) {
-  if (sdt) return "🔥 Hot";
-  if (tuoi || khu_vuc || pickleball) return "🌡 Warm";
-  return "❄ Cold";
-}
-
-// ── Report flag: tránh gửi báo cáo 2 lần khi Railway restart ──
-function getConfigSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName("CONFIG");
-  if (!sh) {
-    sh = ss.insertSheet("CONFIG");
-    sh.getRange(1,1).setValue("report_key");
-    sh.getRange(1,2).setValue("sent_at");
-    sh.hideSheet();
-  }
-  return sh;
-}
-
-function isReportSent(reportKey) {
-  var sh = getConfigSheet();
-  var data = sh.getDataRange().getValues();
-  var today = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy");
-  for (var i = 0; i < data.length; i++) {
-    if (data[i][0] === reportKey && data[i][1] === today) return true;
-  }
-  return false;
-}
-
-function markReportSent(reportKey) {
-  var sh = getConfigSheet();
-  var today = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy");
-  var data = sh.getDataRange().getValues();
-  for (var i = 0; i < data.length; i++) {
-    if (data[i][0] === reportKey) { sh.getRange(i+1, 2).setValue(today); return; }
-  }
-  sh.appendRow([reportKey, today]);
-}
-
-// ── Atomic conv lock — LockService đảm bảo chỉ 1 instance xử lý mỗi conv ──────
-function claimConv(lockKey, instanceId) {
-  var scriptLock = LockService.getScriptLock();
-  try {
-    scriptLock.waitLock(4000);   // chờ tối đa 4s để lấy lock
-  } catch(e) {
-    return ok({ claimed: false, by: "lock_timeout" });
-  }
-  try {
-    var sh  = getConfigSheet();
-    var now = new Date();
-    var data = sh.getDataRange().getValues();
-    for (var i = 0; i < data.length; i++) {
-      if (data[i][0] === lockKey) {
-        // Đã có rồi — kiểm tra có hết hạn chưa (10 phút)
-        var lockTime = data[i][2] ? new Date(data[i][2]) : new Date(0);
-        if ((now - lockTime) < 600000) {
-          return ok({ claimed: false, by: String(data[i][1]) });
-        }
-        // Hết hạn → ghi đè
-        sh.getRange(i + 1, 1, 1, 3).setValues([[lockKey, instanceId, now.toISOString()]]);
-        return ok({ claimed: true, by: instanceId });
-      }
-    }
-    // Chưa có → tạo mới
-    sh.appendRow([lockKey, instanceId, now.toISOString()]);
-    return ok({ claimed: true, by: instanceId });
-  } finally {
-    scriptLock.releaseLock();
-  }
-}
-
-// ── Nhận dữ liệu từ Agent (POST) ─────────────────────────────
 function doPost(e) {
   try {
-    var d  = JSON.parse(e.postData.contents);
+    const body = JSON.parse(e.postData.contents);
+    const action = body.action || "upsert_lead";
 
-    // ── Atomic conversation lock — dùng LockService, chống 2 instance gửi cùng lúc ──
-    if (d.action === "claim_conv") {
-      return claimConv(d.lock_key, d.instance_id);
+    if (action === "claim_conv") {
+      return jsonResponse(claimConv(body.lock_key, body.instance_id));
+    }
+    if (action === "check_report") {
+      return jsonResponse(checkReport(body.report_key));
+    }
+    if (action === "mark_report") {
+      markReport(body.report_key);
+      return jsonResponse({ success: true });
+    }
+    if (action === "upsert_lead" || body.conv_key) {
+      return jsonResponse(upsertLead(body));
     }
 
-    // Xử lý report flag
-    if (d.action === "check_report") {
-      return ok({ sent: isReportSent(d.report_key) });
-    }
-    if (d.action === "mark_report") {
-      markReportSent(d.report_key);
-      return ok({ marked: true });
-    }
+    return jsonResponse({ error: "unknown action", action });
+  } catch (err) {
+    return jsonResponse({ error: err.message });
+  }
+}
 
-    // Chặn ghi lead không có SĐT — tránh làm bẩn Sheet bằng Cold lead vô nghĩa
-    if (!d.sdt || d.sdt.toString().trim() === "") {
-      return ok({ skipped: "no_phone", conv_key: d.conv_key || "" });
-    }
+// ─── UPSERT LEAD ───────────────────────────────────────────────
+function upsertLead(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const ss     = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet  = ss.getSheetByName(SHEET_NAME_LEADS);
+    if (!sheet) return { action: "error", reason: "sheet not found: " + SHEET_NAME_LEADS };
 
-    var sh = getMonthSheet();
-    var ck = d.conv_key || "";
-    var now    = new Date();
-    var ngay   = Utilities.formatDate(now, "Asia/Ho_Chi_Minh", "dd/MM/yyyy");
-    var gio    = Utilities.formatDate(now, "Asia/Ho_Chi_Minh", "HH:mm");
-    var mucDo  = autoMucDo(d.sdt, d.tuoi, d.khu_vuc, d.pickleball);
-    var exist  = findRow(sh, ck);
+    const convKey = (data.conv_key || "").trim();
+    if (!convKey) return { action: "error", reason: "missing conv_key" };
 
-    // Cho phép override ngày/giờ (dùng khi upload thủ công dữ liệu cũ)
-    if (d.ngay_override) ngay = d.ngay_override;
-    if (d.gio_override)  gio  = d.gio_override;
+    const lastRow  = sheet.getLastRow();
+    let existingRow = -1;
 
-    if (exist > 0) {
-      var row = sh.getRange(exist, 1, 1, 26).getValues()[0];
-      if (!row[3] && d.ten)        sh.getRange(exist, 4).setValue(d.ten);
-      if (!row[4] && d.sdt) {
-        sh.getRange(exist, 5).setValue(d.sdt).setFontWeight("bold").setFontColor("#c0392b");
-        sh.getRange(exist, 13).setValue("Mới tạo");
+    // Tìm row có conv_key trùng (cột A)
+    if (lastRow >= 2) {
+      const keys = sheet.getRange(2, COL_CONV_KEY, lastRow - 1, 1).getValues();
+      for (let i = 0; i < keys.length; i++) {
+        if ((keys[i][0] || "").toString().trim() === convKey) {
+          existingRow = i + 2; // 1-based, offset by header row
+          break;
+        }
       }
-      if (!row[5] && d.hoc_vien)   sh.getRange(exist, 6).setValue(d.hoc_vien);
-      if (!row[6] && d.tuoi)       sh.getRange(exist, 7).setValue(d.tuoi);
-      if (!row[7] && d.khu_vuc)    sh.getRange(exist, 8).setValue(d.khu_vuc);
-      if (!row[8] && d.pickleball) sh.getRange(exist, 9).setValue(d.pickleball);
-      if (!row[9] && d.nguon)      sh.getRange(exist, 10).setValue(d.nguon);
-      if (!row[10] && d.nhu_cau)   sh.getRange(exist, 11).setValue(d.nhu_cau);
-      if (d.tinh_trang)            sh.getRange(exist, 13).setValue(d.tinh_trang);
-      if (d.ngay_goi1)             sh.getRange(exist, 14).setValue(d.ngay_goi1);
-      if (d.ghi_chu)               sh.getRange(exist, 15).setValue(d.ghi_chu);
-      sh.getRange(exist, 12).setValue(mucDo);
-      sh.getRange(exist, 3).setValue(gio);
-      return ok({action:"updated", row:exist});
+    }
 
+    const vn      = new Date(new Date().getTime() + 7 * 3600 * 1000);
+    const dateStr = Utilities.formatDate(vn, "GMT+7", "dd/MM/yyyy");
+    const timeStr = Utilities.formatDate(vn, "GMT+7", "HH:mm");
+
+    const rowData = [
+      convKey,
+      dateStr,
+      timeStr,
+      data.ten        || "",
+      data.hoc_vien   || "",
+      data.tuoi       || "",
+      data.khu_vuc    || "",
+      data.pickleball || "",
+      data.sdt        || "",
+      data.nguon      || "Facebook Fanpage",
+      data.tinh_trang || "Mới tạo",
+    ];
+
+    if (existingRow > 0) {
+      // Cập nhật — chỉ ghi đè các trường không rỗng
+      const existing = sheet.getRange(existingRow, COL_CONV_KEY, 1, rowData.length).getValues()[0];
+      const merged   = existing.map((old, idx) => {
+        const incoming = rowData[idx];
+        // Giữ giá trị cũ nếu incoming rỗng, HOẶC cột là tình trạng (cho phép nhân viên đổi thủ công)
+        if (idx === COL_STATUS - 1) return old || incoming; // giữ trạng thái nhân viên đặt
+        return (incoming !== "" && incoming !== null && incoming !== undefined) ? incoming : old;
+      });
+      sheet.getRange(existingRow, COL_CONV_KEY, 1, merged.length).setValues([merged]);
+      return { action: "updated", row: existingRow };
     } else {
-      var stt    = sh.getLastRow();
-      var status = d.tinh_trang || "Mới tạo";
-      var row = [
-        stt, ngay, gio,
-        d.ten        || "",
-        d.sdt        || "",
-        d.hoc_vien   || "",
-        d.tuoi       || "",
-        d.khu_vuc    || "",
-        d.pickleball || "",
-        d.nguon      || "Fanpage",
-        d.nhu_cau    || "Chưa rõ",
-        mucDo,
-        status,
-        d.ngay_goi1||"", d.ghi_chu||"",  // Ngày gọi 1, Kết quả gọi 1
-        "","","","","","","","", // Gọi 2-5
-        "","",                   // Người phụ trách, Ngày test
-        ck
-      ];
-      sh.appendRow(row);
-      var nr = sh.getLastRow();
-      formatRow(sh, nr, !!d.sdt);
-      return ok({action:"inserted", row:nr});
+      // Insert mới
+      const targetRow = lastRow < 2 ? 2 : lastRow + 1;
+      sheet.getRange(targetRow, COL_CONV_KEY, 1, rowData.length).setValues([rowData]);
+      return { action: "inserted", row: targetRow };
     }
-  } catch(err) {
-    return fail(err.toString());
+  } finally {
+    lock.releaseLock();
   }
 }
 
-function formatRow(sh, nr, hasPhone) {
-  sh.setRowHeight(nr, 30);
-  [1,2,3,7,12,13].forEach(function(c) {
-    sh.getRange(nr, c).setHorizontalAlignment("center");
-  });
-  sh.getRange(nr, 13).setFontWeight("bold")
-    .setBackground(hasPhone ? "#fff3cd" : "#f0f0f0");
-  if (hasPhone) {
-    sh.getRange(nr, 5).setFontWeight("bold").setFontColor("#c0392b");
-    sh.getRange(nr, 12).setFontWeight("bold").setFontColor("#c0392b");
-  }
-}
-
-function doGet(e)  { return ok({status:"QNPA webhook OK"}); }
-function ok(d)     { return res(JSON.stringify(Object.assign({success:true},d))); }
-function fail(msg) { return res(JSON.stringify({success:false,error:msg})); }
-function res(t)    { return ContentService.createTextOutput(t).setMimeType(ContentService.MimeType.JSON); }
-
-// ── Xóa tất cả dòng không có SĐT trong sheet tháng hiện tại ──
-function deleteRowsWithoutPhone() {
-  var sh   = getMonthSheet();
-  var last = sh.getLastRow();
-  if (last < 2) { SpreadsheetApp.getUi().alert("Sheet trống, không có gì để xóa."); return; }
-
-  var sdtCol = sh.getRange(2, 5, last - 1, 1).getValues(); // cột E = SĐT
-  var toDelete = [];
-  for (var i = sdtCol.length - 1; i >= 0; i--) {
-    if (!sdtCol[i][0] || sdtCol[i][0].toString().trim() === "") {
-      toDelete.push(i + 2); // +2 vì bắt đầu từ dòng 2
+// ─── CLAIM CONV (atomic lock chống 2 instance xử lý cùng 1 conv) ──
+function claimConv(lockKey, instanceId) {
+  if (!lockKey) return { claimed: false, reason: "missing lock_key" };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(8000);
+  try {
+    const ss    = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet   = ss.getSheetByName(SHEET_NAME_LOCKS);
+    if (!sheet) {
+      sheet = ss.insertSheet(SHEET_NAME_LOCKS);
+      sheet.hideSheet();
     }
+
+    const now     = new Date();
+    const lastRow = sheet.getLastRow();
+    const TTL_MS  = 60 * 1000; // lock hết hạn sau 60 giây
+
+    // Tìm existing lock cho key này
+    if (lastRow >= 1) {
+      const data = sheet.getRange(1, 1, lastRow, 3).getValues(); // [key, instance, timestamp]
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === lockKey) {
+          const ts = new Date(data[i][2]);
+          if ((now - ts) < TTL_MS) {
+            // Lock còn hiệu lực — instance khác đang giữ
+            if (data[i][1] === instanceId) return { claimed: true };  // chính mình
+            return { claimed: false, held_by: data[i][1] };
+          }
+          // Lock hết hạn → ghi đè
+          sheet.getRange(i + 1, 1, 1, 3).setValues([[lockKey, instanceId, now.toISOString()]]);
+          return { claimed: true };
+        }
+      }
+    }
+
+    // Chưa có lock → tạo mới
+    sheet.appendRow([lockKey, instanceId, now.toISOString()]);
+    return { claimed: true };
+  } finally {
+    lock.releaseLock();
   }
-
-  if (toDelete.length === 0) {
-    SpreadsheetApp.getUi().alert("✅ Không có dòng nào thiếu SĐT. Sheet đã sạch!");
-    return;
-  }
-
-  toDelete.forEach(function(r) { sh.deleteRow(r); });
-
-  // Đánh lại STT
-  var newLast = sh.getLastRow();
-  for (var j = 2; j <= newLast; j++) {
-    sh.getRange(j, 1).setValue(j - 1);
-  }
-
-  SpreadsheetApp.getUi().alert("✅ Đã xóa " + toDelete.length + " dòng không có SĐT!");
 }
 
-// ── Chạy 1 lần để tạo sheet tháng hiện tại ───────────────────
-function initCurrentMonth() {
-  getMonthSheet();
-  SpreadsheetApp.getUi().alert("✅ Sheet LEAD " + THANG_VI[new Date().getMonth()+1] + " đã tạo thành công!");
+// ─── REPORT DEDUP ──────────────────────────────────────────────
+function checkReport(key) {
+  if (!key) return { sent: false };
+  const ss   = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet  = ss.getSheetByName(SHEET_NAME_LOCKS);
+  if (!sheet) return { sent: false };
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) return { sent: false };
+  const data = sheet.getRange(1, 1, lastRow, 1).getValues();
+  for (let i = 0; i < data.length; i++) {
+    if ((data[i][0] || "").toString() === key) return { sent: true };
+  }
+  return { sent: false };
 }
 
-// ── Test ghi dữ liệu thử ──────────────────────────────────────
-function testInsert() {
-  doPost({postData:{contents:JSON.stringify({
-    conv_key   : "test_002",
-    ten        : "Nguyễn Thị Hoa",
-    sdt        : "0987654321",
-    hoc_vien   : "Bé An",
-    tuoi       : "8",
-    khu_vuc    : "Hòn Gai",
-    pickleball : "Chưa từng",
-    nguon      : "Facebook Ads",
-    nhu_cau    : "Trại hè"
-  })}});
-  SpreadsheetApp.getUi().alert("✅ Test xong — kiểm tra sheet LEAD THÁNG 6!");
+function markReport(key) {
+  if (!key) return;
+  const ss   = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet  = ss.getSheetByName(SHEET_NAME_LOCKS);
+  if (!sheet) { sheet = ss.insertSheet(SHEET_NAME_LOCKS); sheet.hideSheet(); }
+  sheet.appendRow([key, "report", new Date().toISOString()]);
+}
+
+// ─── HELPER ────────────────────────────────────────────────────
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
