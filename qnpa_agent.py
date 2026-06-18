@@ -912,7 +912,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 if upd.tzinfo is None:
                     upd = upd.replace(tzinfo=timezone.utc)
                 age_min = (datetime.now(timezone.utc) - upd).total_seconds() / 60
-                max_age = 30 if source_type == "inbox" else 2880  # inbox: 30 phút | comment: 48 tiếng (comment công khai không giới hạn 24h như inbox)
+                max_age = 480 if source_type == "inbox" else 2880  # inbox: 8 tiếng (bắt kịp sau restart) | comment: 48 tiếng
                 if age_min > max_age:
                     _replied_convs[conv_id] = snippet_key
                     continue
@@ -1409,12 +1409,31 @@ def run_loop():
     )
 
     cycle = 0
+    _last_active_cycle = 0  # cycle cuoi co tin nhan xu ly
+    _idle_alert_sent = False
+    IDLE_ALERT_CYCLES = 180  # 180 cycle x 5s = 15 phut im lang → canh bao
+
     while True:
         try:
+            processed_before = _stats["processed"]
             process_unanswered()
             check_heartbeat()
             check_and_send_daily_report()
             cycle += 1
+
+            # Theo doi idle — canh bao neu khong xu ly gi trong 15 phut
+            if _stats["processed"] > processed_before:
+                _last_active_cycle = cycle
+                _idle_alert_sent = False
+            idle_cycles = cycle - _last_active_cycle
+            if idle_cycles >= IDLE_ALERT_CYCLES and not _idle_alert_sent:
+                idle_min = idle_cycles * POLL_INTERVAL // 60
+                tg_send(CHAT_COACHING,
+                    f"⚠️ <b>Agent im lặng {idle_min} phút</b>\n"
+                    f"Không có tin nhắn mới nào được xử lý.\n"
+                    f"Nếu có khách nhắn mà chưa được reply → kiểm tra Railway."
+                )
+                _idle_alert_sent = True
 
             if cycle % 4 == 0:
                 now_s = datetime.now(timezone(timedelta(hours=7))).strftime("%H:%M:%S")
