@@ -177,7 +177,9 @@ def get_messages(conv_id, customer_id=None, limit=15):
     try:
         r = requests.get(url, timeout=15)
         data = r.json()
-        if isinstance(data, dict) and data.get("success") is False:
+        if not isinstance(data, dict):
+            return []
+        if data.get("success") is False:
             return []
         return data.get("messages", [])
     except Exception as e:
