@@ -1332,32 +1332,36 @@ def check_and_send_daily_report():
 
     VN_date = now.strftime("%d/%m/%Y")
 
-    # ── Báo cáo 14h ──
-    if h == 14 and m == 0 and not _report_sent["midday"]:
-        _report_sent["midday"] = True  # in-memory block trong session
+    # ── Báo cáo 14h — check cả window 14:00-14:09 để không miss khi restart ──
+    if h == 14 and m < 10 and not _report_sent["midday"]:
         key = f"midday_{VN_date}"
         if not gsheet_check_report(key):
             gsheet_mark_report(key)
+            _report_sent["midday"] = True
             live = fetch_live_stats()
             tg_report_14h_live(live)
             log(f"📊 Đã gửi báo cáo giữa ngày (14h) — {len(live['leads'])} leads")
+        else:
+            _report_sent["midday"] = True  # đã gửi rồi, không gửi lại
 
     elif h == 15:
         _report_sent["midday"] = False
 
-    # ── Báo cáo 0h — tổng kết NGÀY HÔM QUA (vì 0h là đầu ngày mới) ──
-    if h == 0 and m == 0 and not _report_sent["midnight"]:
-        _report_sent["midnight"] = True
+    # ── Báo cáo 0h — check cả window 0:00-0:09 ──
+    if h == 0 and m < 10 and not _report_sent["midnight"]:
         VN = timezone(timedelta(hours=7))
         yesterday = (datetime.now(VN) - timedelta(days=1)).date()
         key = f"midnight_{yesterday.strftime('%d/%m/%Y')}"
         if not gsheet_check_report(key):
             gsheet_mark_report(key)
-            live = fetch_live_stats(target_date=yesterday)  # lấy dữ liệu hôm qua
+            _report_sent["midnight"] = True
+            live = fetch_live_stats(target_date=yesterday)
             tg_report_24h_live(live)
             log(f"📊 Đã gửi tổng kết ngày {yesterday} — {len(live['leads'])} leads")
-        _human_sent_tracked.clear()
-        save_human_sent()
+            _human_sent_tracked.clear()
+            save_human_sent()
+        else:
+            _report_sent["midnight"] = True  # đã gửi rồi
 
     elif h == 1:
         _report_sent["midnight"] = False
