@@ -912,7 +912,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 if upd.tzinfo is None:
                     upd = upd.replace(tzinfo=timezone.utc)
                 age_min = (datetime.now(timezone.utc) - upd).total_seconds() / 60
-                max_age = 30 if source_type == "inbox" else 360  # inbox: 30 phút | comment: 6 tiếng
+                max_age = 30 if source_type == "inbox" else 2880  # inbox: 30 phút | comment: 48 tiếng (comment công khai không giới hạn 24h như inbox)
                 if age_min > max_age:
                     _replied_convs[conv_id] = snippet_key
                     continue
