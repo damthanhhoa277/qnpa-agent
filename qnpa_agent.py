@@ -55,7 +55,7 @@ CHAT_COACHING  = "-5017089871"   # Nhóm Coaching CAS — báo cáo 12h và 22h
 CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY", "")
 BASE           = "https://pages.fm/api/v1"
 CLAUDE_BASE    = "https://api.anthropic.com/v1/messages"
-POLL_INTERVAL  = 8
+POLL_INTERVAL  = 5
 DRY_RUN        = False
 
 # Google Sheet webhook (Apps Script URL — xem HOTLEAD_AppScript.js)
@@ -1053,7 +1053,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             continue
 
         # Ngủ random 3–8s — khoảng rộng để 2 instance không trùng nhau
-        _jitter = 3.0 + _rnd.uniform(0, 5.0)
+        _jitter = 0.5 + _rnd.uniform(0, 1.5)  # Railway Teardown = 1 instance → chỉ cần sleep ngắn
         log(f"  ⏱ Anti-dup sleep {_jitter:.1f}s...")
         time.sleep(_jitter)
 
@@ -1062,7 +1062,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             continue
 
         # Sleep thêm 1s cố định rồi check lần 3 — lưới cuối cùng
-        time.sleep(1.0)
+        time.sleep(0.5)
         if _pancake_check("Pre-send #3"):
             continue
 
