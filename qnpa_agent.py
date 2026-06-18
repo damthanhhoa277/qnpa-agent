@@ -687,7 +687,13 @@ def ask_claude(customer_name: str, messages: list):
                     log(f"  ⛔ Claude hết credit — bỏ qua {customer_name}")
                     return None, f"Claude lỗi {r.status_code}"
                 else:
-                    tg_alert(f"Claude API lỗi {r.status_code}: {err_text[:150]}")
+                    # Rate-limit alert: chỉ gửi Telegram 1 lần/30 phút, không spam
+                    now_ts = datetime.now(timezone.utc)
+                    last_api_alert = getattr(ask_claude, "_last_api_alert", None)
+                    if not last_api_alert or (now_ts - last_api_alert).total_seconds() > 1800:
+                        ask_claude._last_api_alert = now_ts
+                        tg_alert(f"⚠️ Claude API lỗi {r.status_code} — kiểm tra API key hoặc quota. Bot tạm dừng.")
+                    log(f"  ⚠️ Claude API lỗi {r.status_code}: {err_text[:100]}")
                     return None, f"Claude lỗi {r.status_code}"
             data = r.json()
             content = data.get("content") if isinstance(data, dict) else None
@@ -698,12 +704,10 @@ def ask_claude(customer_name: str, messages: list):
             if attempt == 0:
                 log(f"  ⏳ Claude timeout lần 1 — thử lại...")
                 continue
-            # Lần 2 cũng timeout → dùng fallback, không báo Telegram
             log(f"  ⚠️ Claude timeout 2 lần — dùng fallback cho {customer_name}")
             return _FALLBACK, None
         except Exception as e:
             log(f"  ⚠️ Claude exception: {e}")
-            tg_alert(f"Claude exception: {e}")
             return None, str(e)
 
 
