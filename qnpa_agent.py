@@ -675,9 +675,10 @@ def ask_claude(customer_name: str, messages: list):
         f"Dạ em là Linh từ QNPA ạ! {customer_name or 'Anh/chị'} cho em SĐT "
         f"để chuyên viên liên hệ tư vấn chi tiết sớm nhất nhé 😊"
     )
+    track_claude_call()
     for attempt in range(2):
         try:
-            r = requests.post(CLAUDE_BASE, json=payload, headers=headers, timeout=45)
+            r = requests.post(CLAUDE_BASE, json=payload, headers=headers, timeout=20)
             if r.status_code != 200:
                 err_text = r.text[:200]
                 if "credit balance" in err_text or "too low" in err_text:
@@ -723,7 +724,9 @@ def gsheet_claim_conv(conv_id: str, snippet_key: str) -> bool:
     """Atomic lock qua GSheet LockService. True = mình được xử lý. False = instance khác đang xử lý."""
     if not GSHEET_WEBHOOK:
         return True  # không có webhook → không lock, cứ tiếp tục
-    lock_key = f"conv_{conv_id}_{snippet_key[:20]}"
+    # Chỉ dùng conv_id (không kèm snippet) — snippet thay đổi theo từng tin của khách
+    # sẽ tạo lock key khác → 2 instance đều claim được → gửi tin trùng
+    lock_key = f"conv_{conv_id}"
     try:
         r = requests.post(GSHEET_WEBHOOK, json={
             "action"      : "claim_conv",
@@ -738,7 +741,7 @@ def gsheet_claim_conv(conv_id: str, snippet_key: str) -> bool:
 # ============================================================
 # TRẠNG THÁI SESSION
 # ============================================================
-_replied_convs: dict = {}   # conv_id → snippet đã trả lời (reset khi có tin mới)
+_replied_convs: dict = {}   # conv_id → snippet đã trả lời (persist qua restart)
 _blocked_convs: set  = set()  # chỉ block #100 (không tìm thấy user) — không block #551
 _lead_store: dict    = {}   # conv_id → lead dict (tích lũy qua các lượt)
 
@@ -763,9 +766,46 @@ _leads_counted:  set   = set()  # conv_id đã đếm SĐT — tránh đếm 2 l
 _last_replied:   dict  = {}     # conv_id → datetime — cooldown 60s tránh reply 2 lần
 # conv_id → snippet_key — những conv nhân viên đã gửi thủ công (không phải bot)
 _human_sent_tracked: dict = {}
-_STATS_FILE      = os.path.join(_BASE_DIR, "stats_today.json")
-_HUMAN_SENT_FILE = os.path.join(_BASE_DIR, "human_sent_today.json")
+_STATS_FILE          = os.path.join(_BASE_DIR, "stats_today.json")
+_HUMAN_SENT_FILE     = os.path.join(_BASE_DIR, "human_sent_today.json")
+_REPLIED_CONVS_FILE  = os.path.join(_BASE_DIR, "replied_convs.json")
 
+# ── Daily Claude call counter — alert nếu vượt ngưỡng ──────────
+_claude_calls_today  = {"date": "", "count": 0}
+
+
+def save_replied_convs():
+    import json as _json
+    try:
+        with open(_REPLIED_CONVS_FILE, "w", encoding="utf-8") as f:
+            _json.dump(_replied_convs, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+def load_replied_convs():
+    import json as _json
+    global _replied_convs
+    if not os.path.exists(_REPLIED_CONVS_FILE):
+        return
+    try:
+        with open(_REPLIED_CONVS_FILE, encoding="utf-8") as f:
+            loaded = _json.load(f)
+        _replied_convs.update(loaded)
+        log(f"📂 Đã load {len(loaded)} replied_convs từ file — tránh xử lý lại sau restart")
+    except Exception as e:
+        log(f"⚠️ load_replied_convs lỗi: {e}")
+
+def track_claude_call():
+    """Đếm số lần gọi Claude mỗi ngày — alert nếu vượt 500 lần/ngày"""
+    VN_date = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+    if _claude_calls_today["date"] != VN_date:
+        _claude_calls_today["date"]  = VN_date
+        _claude_calls_today["count"] = 0
+    _claude_calls_today["count"] += 1
+    count = _claude_calls_today["count"]
+    # Alert tại mốc 200, 500 lần — chỉ 1 lần/mốc
+    if count in (200, 500):
+        tg_alert(f"⚠️ Claude API: đã gọi {count} lần hôm nay ({VN_date}). Kiểm tra agent có bị lặp không.")
 
 def load_human_sent():
     """Load danh sách conv nhân viên đã gửi hôm nay (để không đếm 2 lần sau restart)"""
@@ -846,7 +886,7 @@ def log(msg: str):
 # ============================================================
 # XỬ LÝ DANH SÁCH HỘI THOẠI
 # ============================================================
-MAX_CLAUDE_CALLS_PER_CYCLE = 5  # Tối đa 5 lần gọi Claude mỗi cycle — tránh burst tốn tiền
+MAX_CLAUDE_CALLS_PER_CYCLE = 10  # Tối đa 10 lần gọi Claude mỗi cycle — Haiku nhanh, 5 quá ít gây delay
 
 def process_conv_list(convs: list, source_type: str = "inbox"):
     processed = 0
@@ -912,7 +952,8 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 if upd.tzinfo is None:
                     upd = upd.replace(tzinfo=timezone.utc)
                 age_min = (datetime.now(timezone.utc) - upd).total_seconds() / 60
-                max_age = 480 if source_type == "inbox" else 2880  # inbox: 8 tiếng (bắt kịp sau restart) | comment: 48 tiếng
+                # inbox: 8 tiếng | comment: 48 tiếng (tránh quét lại comment cũ sau restart)
+                max_age = 480 if source_type == "inbox" else 2880
                 if age_min > max_age:
                     _replied_convs[conv_id] = snippet_key
                     continue
@@ -952,7 +993,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         _stats["new_inbox"] += 1
 
         # Lấy tin nhắn
-        messages = get_messages(conv_id, customer_id=customer_id, limit=20)
+        messages = get_messages(conv_id, customer_id=customer_id, limit=10)
         if not messages:
             log(f"  ✗ Không lấy được tin nhắn")
             continue
@@ -993,14 +1034,20 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         if phone_detected:
             sheet_action = gsheet_upsert_lead(lead, source_type)
             # Chỉ gửi HOT LEAD nếu Sheet xác nhận lead MỚI (inserted) — error = coi như updated, không gửi alert trùng
-            if sheet_action == "inserted" and conv_id not in _leads_counted:
+            # Dedup thêm bằng phone trong session — tránh cùng khách có inbox + comment gửi 2 HOT LEAD
+            phone_already_sent = any(
+                ld.get("phone") == phone_detected
+                for cid, ld in _lead_store.items()
+                if cid != conv_id and cid in _leads_counted
+            )
+            if sheet_action == "inserted" and conv_id not in _leads_counted and not phone_already_sent:
                 _leads_counted.add(conv_id)
                 _stats["leads"] += 1
                 full = all(lead.get(k) not in ("Chưa có", "Chưa rõ", "") for k in ("age", "area", "pickleball"))
                 if full:
                     _stats["full_leads"] += 1
                 tg_hot_lead(lead)
-            elif sheet_action == "updated":
+            elif sheet_action == "updated" or phone_already_sent:
                 _leads_counted.add(conv_id)  # đánh dấu để bỏ qua lần sau trong session này
 
         # Giới hạn số lần gọi Claude mỗi cycle — tránh burst tốn tiền khi restart
@@ -1395,9 +1442,10 @@ def run_loop():
     log(f"QNPA AI Agent v2.0 khởi động (poll mỗi {POLL_INTERVAL}s)")
     log(f"Log: {_log_path}")
     start_health_server()
-    load_stats()        # Khôi phục stats từ file — tránh mất số liệu khi restart
-    load_human_sent()   # Khôi phục danh sách nhân viên đã gửi hôm nay (nếu có)
-    warm_up_replied_convs()  # Đánh dấu conv đã reply trước khi vào loop — tránh reply lại sau restart
+    load_stats()          # Khôi phục stats từ file — tránh mất số liệu khi restart
+    load_human_sent()     # Khôi phục danh sách nhân viên đã gửi hôm nay (nếu có)
+    load_replied_convs()  # Khôi phục replied_convs — tránh xử lý lại comment/inbox cũ sau restart
+    warm_up_replied_convs()  # Bổ sung thêm từ Pancake API — đảm bảo không sót
     if DRY_RUN:
         log("⚠️ DRY RUN — không gửi tin thật")
 
@@ -1437,8 +1485,9 @@ def run_loop():
 
             if cycle % 4 == 0:
                 now_s = datetime.now(timezone(timedelta(hours=7))).strftime("%H:%M:%S")
-                log(f"[{now_s}] cycle #{cycle} — leads: {_stats['leads']} | processed: {_stats['processed']}")
+                log(f"[{now_s}] cycle #{cycle} — leads: {_stats['leads']} | processed: {_stats['processed']} | claude_today: {_claude_calls_today['count']}")
                 save_stats()
+                save_replied_convs()
 
         except KeyboardInterrupt:
             log("Đã dừng Agent.")
