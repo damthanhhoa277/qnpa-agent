@@ -735,8 +735,8 @@ def gsheet_claim_conv(conv_id: str, snippet_key: str) -> bool:
         }, timeout=7)
         return r.json().get("claimed", True)
     except Exception as _e:
-        log(f"  ⚠️ claim_conv lỗi: {_e} — bỏ qua để tránh lặp")
-        return False  # fail closed: không chắc → không xử lý, cycle sau thử lại
+        log(f"  ⚠️ claim_conv lỗi: {_e} — tiếp tục (Railway Teardown = 1 instance)")
+        return True  # fail open: Railway Teardown đảm bảo 1 instance → không sợ race
 
 # ============================================================
 # TRẠNG THÁI SESSION
