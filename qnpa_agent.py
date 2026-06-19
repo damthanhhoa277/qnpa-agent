@@ -690,14 +690,14 @@ def ask_claude(customer_name: str, messages: list):
                     log(f"  ⛔ Claude hết credit — bỏ qua {customer_name}")
                     return None, f"Claude lỗi {r.status_code}"
                 else:
-                    # Rate-limit alert: chỉ gửi Telegram 1 lần/30 phút, không spam
+                    # Rate-limit / API error — alert 1 lần/30 phút, dùng fallback thay vì bỏ qua
                     now_ts = datetime.now(timezone.utc)
                     last_api_alert = getattr(ask_claude, "_last_api_alert", None)
                     if not last_api_alert or (now_ts - last_api_alert).total_seconds() > 1800:
                         ask_claude._last_api_alert = now_ts
-                        tg_alert(f"⚠️ Claude API lỗi {r.status_code} — kiểm tra API key hoặc quota. Bot tạm dừng.")
-                    log(f"  ⚠️ Claude API lỗi {r.status_code}: {err_text[:100]}")
-                    return None, f"Claude lỗi {r.status_code}"
+                        tg_alert(f"⚠️ Claude API lỗi {r.status_code} — kiểm tra API key hoặc quota. Đang dùng tin mẫu.")
+                    log(f"  ⚠️ Claude API lỗi {r.status_code}: {err_text[:100]} — dùng fallback")
+                    return _FALLBACK, None  # fallback: gửi tin mẫu, không để khách chờ mãi
             data = r.json()
             content = data.get("content") if isinstance(data, dict) else None
             if not content or not isinstance(content, list) or not content[0]:
