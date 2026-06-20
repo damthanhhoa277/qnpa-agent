@@ -959,7 +959,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                     upd = upd.replace(tzinfo=timezone.utc)
                 age_min = (datetime.now(timezone.utc) - upd).total_seconds() / 60
                 # inbox: 8 tiếng | comment: 48 tiếng (tránh quét lại comment cũ sau restart)
-                max_age = 480 if source_type == "inbox" else 2880
+                max_age = 120 if source_type == "inbox" else 2880  # inbox: 2h (du bat kip sau restart ngan, khong flood conv cu)
                 if age_min > max_age:
                     _replied_convs[conv_id] = snippet_key
                     continue
