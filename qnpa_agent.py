@@ -661,7 +661,7 @@ def ask_claude(customer_name: str, messages: list):
     history_for_claude = list(reversed(history))
 
     payload = {
-        "model": "claude-haiku-4-5-20251001",
+        "model": "claude-3-5-haiku-20241022",
         "max_tokens": 400,
         "system": QNPA_KNOWLEDGE + extra,
         "messages": history_for_claude,
@@ -838,8 +838,9 @@ def save_stats():
     global _leads_counted
     try:
         data = dict(_stats)
-        data["_leads_counted"]  = list(_leads_counted)
-        data["_report_sent"]    = _report_sent          # lưu để tránh gửi lại sau restart
+        data["_leads_counted"]    = list(_leads_counted)
+        data["_report_sent"]      = _report_sent
+        data["_claude_calls_today"] = _claude_calls_today  # persist qua restart — tránh reset counter
         with open(_STATS_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
@@ -862,7 +863,12 @@ def load_stats():
         if "_report_sent" in saved:
             _report_sent.update(saved["_report_sent"])
             log(f"📂 Đã load report_sent: {_report_sent}")
-        log(f"📂 Đã load stats: leads={_stats['leads']} | inbox={_stats['new_inbox']} | processed={_stats['processed']} | leads_counted={len(_leads_counted)}")
+        if "_claude_calls_today" in saved:
+            saved_calls = saved["_claude_calls_today"]
+            VN_today = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+            if isinstance(saved_calls, dict) and saved_calls.get("date") == VN_today:
+                _claude_calls_today.update(saved_calls)  # chỉ load nếu cùng ngày
+        log(f"📂 Đã load stats: leads={_stats['leads']} | inbox={_stats['new_inbox']} | processed={_stats['processed']} | leads_counted={len(_leads_counted)} | claude_today={_claude_calls_today['count']}")
     except Exception as e:
         log(f"⚠️ load_stats lỗi: {e}")
 
@@ -886,7 +892,7 @@ def log(msg: str):
 # ============================================================
 # XỬ LÝ DANH SÁCH HỘI THOẠI
 # ============================================================
-MAX_CLAUDE_CALLS_PER_CYCLE = 10  # Tối đa 10 lần gọi Claude mỗi cycle — Haiku nhanh, 5 quá ít gây delay
+MAX_CLAUDE_CALLS_PER_CYCLE = 3   # Tối đa 3 Claude calls/cycle — tránh burst 500 lần/ngày sau restart
 
 def process_conv_list(convs: list, source_type: str = "inbox"):
     processed = 0
