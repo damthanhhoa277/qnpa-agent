@@ -661,7 +661,7 @@ def ask_claude(customer_name: str, messages: list):
     history_for_claude = list(reversed(history))
 
     payload = {
-        "model": "claude-3-5-haiku-20241022",
+        "model": "claude-haiku-4-5-20251001",
         "max_tokens": 400,
         "system": QNPA_KNOWLEDGE + extra,
         "messages": history_for_claude,
