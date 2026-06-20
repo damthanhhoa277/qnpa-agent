@@ -744,6 +744,7 @@ def gsheet_claim_conv(conv_id: str, snippet_key: str) -> bool:
 _replied_convs: dict = {}   # conv_id → snippet đã trả lời (persist qua restart)
 _blocked_convs: set  = set()  # chỉ block #100 (không tìm thấy user) — không block #551
 _lead_store: dict    = {}   # conv_id → lead dict (tích lũy qua các lượt)
+_send_fail_count: dict = {}  # conv_id → số lần Pancake từ chối (chặn vòng lặp vô hạn)
 
 _stats = {
     "new_inbox"       : 0,
@@ -838,6 +839,7 @@ def save_stats():
     global _leads_counted
     try:
         data = dict(_stats)
+        data["errors"] = _stats["errors"][-50:]  # giữ tối đa 50 lỗi gần nhất
         data["_leads_counted"]    = list(_leads_counted)
         data["_report_sent"]      = _report_sent
         data["_claude_calls_today"] = _claude_calls_today  # persist qua restart — tránh reset counter
@@ -1071,8 +1073,14 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 _replied_convs[conv_id] = snippet_key
             else:
                 log(f"  ✗ Claude lỗi: {err}")
-                errors.append(f"{customer}: {err}")
-                _replied_convs.pop(conv_id, None)  # cho phép retry cycle sau
+                _send_fail_count[conv_id] = _send_fail_count.get(conv_id, 0) + 1
+                if _send_fail_count[conv_id] >= 3:
+                    _blocked_convs.add(conv_id)
+                    _replied_convs[conv_id] = snippet_key
+                    log(f"  🚫 Block {customer} sau 3 lần Claude lỗi")
+                else:
+                    errors.append(f"{customer}: {err}")
+                    _replied_convs.pop(conv_id, None)  # cho phép retry
             continue
 
         log(f"  ✓ Linh soạn: {reply[:80]}...")
@@ -1166,10 +1174,17 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 _stats["manual_needed"] += 1
                 log(f"  ⏰ Block {customer} — quá 24h FB rule (#10)")
             else:
-                # Lỗi không xác định — xóa đánh dấu để retry cycle sau
-                _replied_convs.pop(conv_id, None)
-                errors.append(f"{customer}: {err_msg}")
-                _stats["errors"].append(f"{customer}: {err_msg[:60]}")
+                # Lỗi không xác định — đếm số lần thất bại, sau 3 lần block vĩnh viễn
+                _send_fail_count[conv_id] = _send_fail_count.get(conv_id, 0) + 1
+                if _send_fail_count[conv_id] >= 3:
+                    _blocked_convs.add(conv_id)
+                    _replied_convs[conv_id] = snippet_key
+                    log(f"  🚫 Block {customer} sau 3 lần Pancake từ chối: {err_msg[:60]}")
+                    _stats["errors"].append(f"{customer}: block sau 3 lần lỗi")
+                else:
+                    _replied_convs.pop(conv_id, None)
+                    errors.append(f"{customer}: {err_msg}")
+                    _stats["errors"].append(f"{customer}: {err_msg[:60]} (lần {_send_fail_count[conv_id]})")
 
         time.sleep(0.5)
 
