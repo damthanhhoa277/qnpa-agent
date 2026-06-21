@@ -1048,15 +1048,19 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 for cid, ld in _lead_store.items()
                 if cid != conv_id and cid in _leads_counted
             )
-            if sheet_action == "inserted" and conv_id not in _leads_counted and not phone_already_sent:
-                _leads_counted.add(conv_id)
-                _stats["leads"] += 1
-                full = all(lead.get(k) not in ("Chưa có", "Chưa rõ", "") for k in ("age", "area", "pickleball"))
-                if full:
-                    _stats["full_leads"] += 1
-                tg_hot_lead(lead)
-            elif sheet_action == "updated" or phone_already_sent:
-                _leads_counted.add(conv_id)  # đánh dấu để bỏ qua lần sau trong session này
+            if conv_id not in _leads_counted and not phone_already_sent:
+                if sheet_action in ("inserted", "error"):
+                    # inserted = lead mới; error = Sheet lỗi nhưng vẫn phải alert để không mất lead
+                    _leads_counted.add(conv_id)
+                    _stats["leads"] += 1
+                    full = all(lead.get(k) not in ("Chưa có", "Chưa rõ", "") for k in ("age", "area", "pickleball"))
+                    if full:
+                        _stats["full_leads"] += 1
+                    if sheet_action == "error":
+                        log(f"  ⚠️ Sheet lỗi — vẫn gửi HOT LEAD Telegram để không mất lead")
+                    tg_hot_lead(lead)
+                elif sheet_action == "updated" or phone_already_sent:
+                    _leads_counted.add(conv_id)  # đánh dấu để bỏ qua lần sau trong session này
 
         # Giới hạn số lần gọi Claude mỗi cycle — tránh burst tốn tiền khi restart
         if claude_calls_this_cycle >= MAX_CLAUDE_CALLS_PER_CYCLE:
