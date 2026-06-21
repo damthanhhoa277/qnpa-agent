@@ -59,7 +59,7 @@ POLL_INTERVAL  = 5
 DRY_RUN        = False
 
 # Google Sheet webhook (Apps Script URL — xem HOTLEAD_AppScript.js)
-GSHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbwzvQIdvVKBJSOMpZgAyXiYDFpxcucO2RM8CdLz-pdN0zrebxAJn08ROFXj40gBqLoD5A/exec"
+GSHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbyqjlF5jl1VM2kjcajO3jmW96bbGmc4gunSmMODiv9WxNaUupf6sE_C6ZNjdEOO6FlbBg/exec"
 
 # ============================================================
 # KNOWLEDGE BASE
