@@ -2,3 +2,4 @@ requests
 psutil
 anthropic
 python-dotenv
+python-docx
