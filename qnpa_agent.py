@@ -1469,6 +1469,15 @@ def run_loop():
         "⏱ Poll mỗi 15 giây"
     )
 
+    # Khởi động hệ thống đào tạo hàng ngày chạy nền
+    try:
+        import dao_tao_hang_ngay
+        t_dao_tao = threading.Thread(target=dao_tao_hang_ngay.run_loop, daemon=True)
+        t_dao_tao.start()
+        log("📚 Hệ thống đào tạo hàng ngày đã khởi động (thread nền)")
+    except Exception as e:
+        log(f"⚠️ Không khởi động được hệ thống đào tạo: {e}")
+
     cycle = 0
     _last_active_cycle = 0  # cycle cuoi co tin nhan xu ly
     _idle_alert_sent = False

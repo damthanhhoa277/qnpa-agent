@@ -879,6 +879,17 @@ def run_loop():
                 bao_cao_dao_tao()
                 s["bao_cao"] = True
 
+            # 21:30 — Nhắc chị Hoa mở agent sáng mai
+            elif h == 21 and 30 <= m < 40 and not s.get("nhac_mai"):
+                tg(CHAT_COACHING,
+                    "⏰ <b>NHẮC NHỞ — MAI 6:30 HỆ THỐNG KHỞI ĐỘNG</b>\n\n"
+                    "Chị Hoa nhớ mở <code>chay_agent.bat</code> trước 6:30 sáng mai nhé!\n\n"
+                    "📂 File tại: <code>D:\\NÃO CỦA HOA\\chay_agent.bat</code>\n"
+                    "▶️ Double-click là chạy — giữ cửa sổ đó mở cả ngày.\n\n"
+                    "<i>Nếu đã mở rồi thì bỏ qua tin này ạ 😊</i>"
+                )
+                s["nhac_mai"] = True
+
             if s:
                 state[ngay] = s
                 save_state(state)
