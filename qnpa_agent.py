@@ -265,14 +265,15 @@ def gsheet_check_report(key: str) -> bool:
     return False
 
 def gsheet_mark_report(key: str):
-    """Đánh dấu đã gửi — lưu vào _locks Sheet (bền vững) + memory."""
+    """Đánh dấu đã gửi — lưu vào _locks Sheet (bền vững) + memory. Idempotent."""
     _report_sent[key] = True
     try:
         ws = _get_locks_sheet()
         if ws:
-            from datetime import datetime, timezone, timedelta
-            ts = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M")
-            ws.append_row([key, "report", ts])
+            col = ws.col_values(1)
+            if key not in col:  # chống append trùng khi 2 instance race
+                ts = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M")
+                ws.append_row([key, "report", ts])
     except Exception as _e:
         log(f"  ⚠️ mark_report Sheet lỗi: {_e}")
     save_stats()
@@ -1272,7 +1273,7 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                     errors.append(f"{customer}: {err_msg}")
                     _stats["errors"].append(f"{customer}: {err_msg[:60]} (lần {_send_fail_count[conv_id]})")
 
-        time.sleep(0.5)
+        time.sleep(0.1)
 
     return processed, errors
 
@@ -1371,7 +1372,7 @@ def process_followups():
             _blocked_convs.add(conv_id)
             _stats["manual_needed"] += 1
             _followup_store.pop(conv_id, None)
-        time.sleep(0.5)
+        time.sleep(0.1)
 
 
 def warm_up_replied_convs():
