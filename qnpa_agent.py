@@ -1469,19 +1469,6 @@ def run_loop():
         "⏱ Poll mỗi 15 giây"
     )
 
-    # Khởi động hệ thống đào tạo hàng ngày chạy nền
-    try:
-        import importlib.util as _ilu, os as _os2
-        _dt_path = _os2.path.join(_os2.path.dirname(_os2.path.abspath(__file__)), "dao_tao_hang_ngay.py")
-        _spec = _ilu.spec_from_file_location("dao_tao_hang_ngay", _dt_path)
-        _dao_tao = _ilu.module_from_spec(_spec)
-        _spec.loader.exec_module(_dao_tao)
-        t_dao_tao = threading.Thread(target=_dao_tao.run_loop, daemon=True)
-        t_dao_tao.start()
-        log("📚 He thong dao tao da khoi dong (thread nen)")
-    except Exception as e:
-        log(f"⚠️ Loi khoi dong dao tao: {e}")
-
     cycle = 0
     _last_active_cycle = 0  # cycle cuoi co tin nhan xu ly
     _idle_alert_sent = False
