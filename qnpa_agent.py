@@ -460,40 +460,53 @@ def extract_lead_info(messages, customer_name: str) -> dict:
 # ============================================================
 # GOOGLE SHEET — UPSERT (cập nhật nếu đã có, thêm mới nếu chưa)
 # ============================================================
-def _get_lead_sheet():
-    """Lấy worksheet 'LEAD THÁNG 6' qua gspread service account. Cache lại để tái dùng."""
+_SPREADSHEET_ID = "1yMbrjedTKMu51aSBLLA6EWkJ5Yg_A4Q_kPfkkBc6uSo"
+_gspread_ws = None       # cache lead worksheet
+_gspread_locks_ws = None  # cache _locks worksheet
+_gspread_sh = None       # cache spreadsheet object
+
+def _get_gspread_spreadsheet():
+    """Kết nối Google Sheets — đọc credentials từ file (local) hoặc env var GOOGLE_CREDENTIALS_JSON (Railway)."""
     import gspread as _gs
     from google.oauth2.service_account import Credentials as _Creds
+    import json as _json
+    global _gspread_sh
+    if _gspread_sh is not None:
+        return _gspread_sh
+    SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+    # Ưu tiên env var (Railway) → file local
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
+    if creds_json:
+        info = _json.loads(creds_json)
+        creds = _Creds.from_service_account_info(info, scopes=SCOPES)
+    else:
+        creds_path = os.path.join(_BASE_DIR, "credentials.json")
+        if not os.path.exists(creds_path):
+            return None
+        creds = _Creds.from_service_account_file(creds_path, scopes=SCOPES)
+    gc = _gs.authorize(creds)
+    _gspread_sh = gc.open_by_key(_SPREADSHEET_ID)
+    return _gspread_sh
+
+def _get_lead_sheet():
+    """Lấy worksheet 'LEAD THÁNG 6'."""
     global _gspread_ws
     if _gspread_ws is not None:
         return _gspread_ws
-    creds_path = os.path.join(_BASE_DIR, "credentials.json")
-    if not os.path.exists(creds_path):
+    sh = _get_gspread_spreadsheet()
+    if sh is None:
         return None
-    creds = _Creds.from_service_account_file(
-        creds_path, scopes=["https://www.googleapis.com/auth/spreadsheets"])
-    gc = _gs.authorize(creds)
-    sh = gc.open_by_key("1yMbrjedTKMu51aSBLLA6EWkJ5Yg_A4Q_kPfkkBc6uSo")
     _gspread_ws = sh.worksheet("LEAD THÁNG 6")
     return _gspread_ws
 
-_gspread_ws = None       # cache lead worksheet
-_gspread_locks_ws = None  # cache _locks worksheet
-
 def _get_locks_sheet():
     """Lấy worksheet '_locks' để lưu report dedup — tồn tại qua Railway deploy."""
-    import gspread as _gs
-    from google.oauth2.service_account import Credentials as _Creds
     global _gspread_locks_ws
     if _gspread_locks_ws is not None:
         return _gspread_locks_ws
-    creds_path = os.path.join(_BASE_DIR, "credentials.json")
-    if not os.path.exists(creds_path):
+    sh = _get_gspread_spreadsheet()
+    if sh is None:
         return None
-    creds = _Creds.from_service_account_file(
-        creds_path, scopes=["https://www.googleapis.com/auth/spreadsheets"])
-    gc = _gs.authorize(creds)
-    sh = gc.open_by_key("1yMbrjedTKMu51aSBLLA6EWkJ5Yg_A4Q_kPfkkBc6uSo")
     _gspread_locks_ws = sh.worksheet("_locks")
     return _gspread_locks_ws
 
