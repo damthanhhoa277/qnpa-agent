@@ -248,15 +248,15 @@ def tg_hot_lead(lead: dict):
     tg_send(CHAT_SALE, msg)
 
 
-_report_sent_keys: set = set()  # in-memory dedup cho báo cáo (Railway=1 instance)
-
 def gsheet_check_report(key: str) -> bool:
-    """Kiểm tra báo cáo đã gửi chưa — in-memory (Railway Teardown = 1 instance)"""
-    return key in _report_sent_keys
+    """Kiểm tra báo cáo đã gửi chưa — dùng _report_sent dict (đã persist qua stats_today.json)"""
+    # _report_sent được load từ file khi restart → không bị mất qua Railway deploy
+    return _report_sent.get(key, False)
 
 def gsheet_mark_report(key: str):
-    """Đánh dấu báo cáo đã gửi"""
-    _report_sent_keys.add(key)
+    """Đánh dấu báo cáo đã gửi — lưu vào _report_sent và save file ngay"""
+    _report_sent[key] = True
+    save_stats()
 
 def tg_report_14h_live(live: dict):
     """Báo cáo giữa ngày từ dữ liệu Pancake thực tế"""
@@ -1400,7 +1400,7 @@ def fetch_live_stats(target_date=None):
     VN = timezone(timedelta(hours=7))
     if target_date is None:
         target_date = datetime.now(VN).date()
-    phone_re = re.compile(r"0\d{9}")
+    phone_re = re.compile(r"0[\d\s\-\.]{9,13}")
 
     def get_msgs(conv_id, cust_id=None):
         url = f"{BASE}/pages/{PAGE_ID}/conversations/{conv_id}/messages?access_token={PANCAKE_TOKEN}&limit=30"
@@ -1422,7 +1422,9 @@ def fetch_live_stats(target_date=None):
 
     for c in get_conversations(100, "inbox"):
         if not isinstance(c, dict): continue
-        if not is_target_day(c.get("last_customer_interactive_at") or c.get("updated_at")): continue
+        ts = (c.get("last_customer_interactive_at") or c.get("last_activity_at")
+              or c.get("updated_at") or c.get("created_at"))
+        if not is_target_day(ts): continue
         inbox_count += 1
         conv_id = c.get("id", "")
         cust = (c.get("customers") or [{}])[0]
@@ -1430,12 +1432,17 @@ def fetch_live_stats(target_date=None):
         msgs = get_msgs(conv_id, cust.get("id"))
         txt = " ".join(str(m.get("message","") or m.get("original_message","")) for m in msgs
                        if str((m.get("from") or {}).get("id","")) != PAGE_ID)
-        phones = phone_re.findall(txt)
-        if phones: leads[conv_id] = {"name": cust.get("name","?"), "phone": phones[0]}
+        for rp in phone_re.findall(txt):
+            digits = re.sub(r"\D", "", rp)
+            if len(digits) == 10:
+                leads[conv_id] = {"name": cust.get("name","?"), "phone": digits}
+                break
 
     for c in get_conversations(50, "comment"):
         if not isinstance(c, dict): continue
-        if not is_target_day(c.get("updated_at")): continue
+        ts = (c.get("last_customer_interactive_at") or c.get("last_activity_at")
+              or c.get("updated_at") or c.get("created_at"))
+        if not is_target_day(ts): continue
         comment_count += 1
         conv_id = c.get("id", "")
         cust = (c.get("customers") or [{}])[0]
@@ -1443,8 +1450,11 @@ def fetch_live_stats(target_date=None):
         msgs = get_msgs(conv_id, cust.get("id"))
         txt = " ".join(str(m.get("message","") or m.get("original_message","")) for m in msgs
                        if str((m.get("from") or {}).get("id","")) != PAGE_ID)
-        phones = phone_re.findall(txt)
-        if phones: leads[conv_id] = {"name": cust.get("name","?"), "phone": phones[0]}
+        for rp in phone_re.findall(txt):
+            digits = re.sub(r"\D", "", rp)
+            if len(digits) == 10:
+                leads[conv_id] = {"name": cust.get("name","?"), "phone": digits}
+                break
 
     return {"inbox": inbox_count, "comments": comment_count, "leads": leads}
 
