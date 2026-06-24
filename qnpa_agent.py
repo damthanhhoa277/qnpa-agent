@@ -248,24 +248,15 @@ def tg_hot_lead(lead: dict):
     tg_send(CHAT_SALE, msg)
 
 
+_report_sent_keys: set = set()  # in-memory dedup cho báo cáo (Railway=1 instance)
+
 def gsheet_check_report(key: str) -> bool:
-    """Kiểm tra Google Sheet xem báo cáo đã gửi chưa — dùng làm lock chống gửi 2 lần"""
-    if not GSHEET_WEBHOOK:
-        return False
-    try:
-        r = requests.post(GSHEET_WEBHOOK, json={"action": "check_report", "report_key": key}, timeout=8)
-        return r.json().get("sent", False)
-    except:
-        return False
+    """Kiểm tra báo cáo đã gửi chưa — in-memory (Railway Teardown = 1 instance)"""
+    return key in _report_sent_keys
 
 def gsheet_mark_report(key: str):
-    """Đánh dấu báo cáo đã gửi vào Google Sheet"""
-    if not GSHEET_WEBHOOK:
-        return
-    try:
-        requests.post(GSHEET_WEBHOOK, json={"action": "mark_report", "report_key": key}, timeout=8)
-    except:
-        pass
+    """Đánh dấu báo cáo đã gửi"""
+    _report_sent_keys.add(key)
 
 def tg_report_14h_live(live: dict):
     """Báo cáo giữa ngày từ dữ liệu Pancake thực tế"""
@@ -450,35 +441,125 @@ def extract_lead_info(messages, customer_name: str) -> dict:
 # ============================================================
 # GOOGLE SHEET — UPSERT (cập nhật nếu đã có, thêm mới nếu chưa)
 # ============================================================
+def _get_lead_sheet():
+    """Lấy worksheet 'LEAD THÁNG 6' qua gspread service account. Cache lại để tái dùng."""
+    import gspread as _gs
+    from google.oauth2.service_account import Credentials as _Creds
+    global _gspread_ws
+    if _gspread_ws is not None:
+        return _gspread_ws
+    creds_path = os.path.join(_BASE_DIR, "credentials.json")
+    if not os.path.exists(creds_path):
+        return None
+    creds = _Creds.from_service_account_file(
+        creds_path, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+    gc = _gs.authorize(creds)
+    sh = gc.open_by_key("1yMbrjedTKMu51aSBLLA6EWkJ5Yg_A4Q_kPfkkBc6uSo")
+    _gspread_ws = sh.worksheet("LEAD THÁNG 6")
+    return _gspread_ws
+
+_gspread_ws = None  # cache worksheet
+
+# Cột trong sheet "LEAD THÁNG 6" (1-based)
+_COL_STT      = 1   # A
+_COL_NGAY     = 2   # B
+_COL_GIO      = 3   # C
+_COL_TEN      = 4   # D
+_COL_SDT      = 5   # E
+_COL_HOC_VIEN = 6   # F
+_COL_TUOI     = 7   # G
+_COL_KHU_VUC  = 8   # H
+_COL_PB       = 9   # I
+_COL_NGUON    = 10  # J
+_COL_NHU_CAU  = 11  # K
+_COL_STATUS   = 13  # M
+_COL_CONV_KEY = 27  # AA
+
 def gsheet_upsert_lead(lead: dict, source_type: str = "inbox") -> str:
-    """Ghi hoặc cập nhật lead vào Google Sheet. Trả về 'inserted'/'updated'/'error'."""
-    if not GSHEET_WEBHOOK:
-        return "error"
+    """Ghi hoặc cập nhật lead vào Google Sheet qua gspread. Trả về 'inserted'/'updated'/'error'."""
     try:
-        payload = {
-            "conv_key"    : lead.get("conv_key", ""),
-            "ten"         : lead.get("parent", ""),
-            "hoc_vien"    : lead.get("student", ""),
-            "tuoi"        : lead.get("age", ""),
-            "khu_vuc"     : lead.get("area", ""),
-            "pickleball"  : lead.get("pickleball", ""),
-            "sdt"         : lead.get("phone", ""),
-            "nhu_cau"     : lead.get("nhu_cau", "Chưa rõ"),
-            "nguon"       : "Facebook Fanpage" if source_type == "inbox" else "Fanpage Comment",
-            "tinh_trang"  : "Mới tạo",
-        }
-        r = requests.post(GSHEET_WEBHOOK, json=payload, timeout=10)
-        if r.status_code == 200:
-            rj = r.json()
-            action = rj.get("action", "unknown") if isinstance(rj, dict) else "unknown"
-            log(f"  ✅ Sheet {action}: {lead.get('parent')} — {lead.get('phone','chưa SĐT')}")
-            return action  # "inserted" hoặc "updated"
-        else:
-            log(f"  ⚠️ Sheet lỗi {r.status_code}: {r.text[:80]}")
+        ws = _get_lead_sheet()
+        if ws is None:
+            log("  ⚠️ Không có credentials.json — bỏ qua ghi Sheet")
             return "error"
+
+        conv_key = lead.get("conv_key", "").strip()
+        if not conv_key:
+            return "error"
+
+        from datetime import datetime, timezone, timedelta
+        vn_now = datetime.now(timezone(timedelta(hours=7)))
+        date_str = vn_now.strftime("%d/%m/%Y")
+        time_str = vn_now.strftime("%H:%M")
+        nguon = "Facebook Fanpage" if source_type == "inbox" else "Fanpage Comment"
+
+        # Tìm row có conv_key trùng (cột AA = 27)
+        col_aa = ws.col_values(_COL_CONV_KEY)
+        existing_row = None
+        for i, val in enumerate(col_aa):
+            if str(val).strip() == conv_key:
+                existing_row = i + 1  # 1-based
+                break
+
+        if existing_row:
+            # Update — chỉ ghi đè trường không rỗng
+            import gspread as _gs2
+
+            def _col_letter(n):
+                """1→A, 27→AA"""
+                r = ""
+                while n > 0:
+                    n, rem = divmod(n - 1, 26)
+                    r = chr(65 + rem) + r
+                return r
+
+            updates = []
+            def _upd(col, val):
+                if val and val not in ("Chưa có", "Chưa rõ", ""):
+                    cell = f"{_col_letter(col)}{existing_row}"
+                    updates.append({"range": cell, "values": [[val]]})
+
+            _upd(_COL_NGAY,     date_str)
+            _upd(_COL_GIO,      time_str)
+            _upd(_COL_TEN,      lead.get("parent", ""))
+            _upd(_COL_SDT,      lead.get("phone", ""))
+            _upd(_COL_HOC_VIEN, lead.get("student", ""))
+            _upd(_COL_TUOI,     lead.get("age", ""))
+            _upd(_COL_KHU_VUC,  lead.get("area", ""))
+            _upd(_COL_PB,       lead.get("pickleball", ""))
+            _upd(_COL_NGUON,    nguon)
+            _upd(_COL_NHU_CAU,  lead.get("nhu_cau", ""))
+            if updates:
+                ws.spreadsheet.values_batch_update({"valueInputOption": "USER_ENTERED", "data":
+                    [{"range": u["range"], "values": u["values"]} for u in updates]})
+            log(f"  ✅ Sheet updated: {lead.get('parent')} — {lead.get('phone','?')}")
+            return "updated"
+        else:
+            # Insert mới — tìm row cuối có data
+            all_vals = ws.get_all_values()
+            last_row = len(all_vals)
+            new_row = last_row + 1
+            stt = last_row  # STT = số thứ tự (bỏ header)
+            row_data = [""] * _COL_CONV_KEY
+            row_data[_COL_STT - 1]      = str(stt)
+            row_data[_COL_NGAY - 1]     = date_str
+            row_data[_COL_GIO - 1]      = time_str
+            row_data[_COL_TEN - 1]      = lead.get("parent", "")
+            row_data[_COL_SDT - 1]      = lead.get("phone", "")
+            row_data[_COL_HOC_VIEN - 1] = lead.get("student", "")
+            row_data[_COL_TUOI - 1]     = lead.get("age", "")
+            row_data[_COL_KHU_VUC - 1]  = lead.get("area", "")
+            row_data[_COL_PB - 1]       = lead.get("pickleball", "")
+            row_data[_COL_NGUON - 1]    = nguon
+            row_data[_COL_NHU_CAU - 1]  = lead.get("nhu_cau", "")
+            row_data[_COL_STATUS - 1]   = "Mới tạo"
+            row_data[_COL_CONV_KEY - 1] = conv_key
+            ws.append_row(row_data, value_input_option="USER_ENTERED")
+            log(f"  ✅ Sheet inserted row {new_row}: {lead.get('parent')} — {lead.get('phone','?')}")
+            return "inserted"
     except Exception as e:
-        log(f"  ⚠️ Lỗi ghi Sheet: {e}")
-        return "updated"  # fail safe: lỗi = coi như đã có, không gửi HOT LEAD trùng
+        log(f"  ⚠️ Lỗi ghi Sheet (gspread): {e}")
+        return "error"
 
 # ============================================================
 # CLAUDE AI
@@ -713,22 +794,8 @@ import uuid as _uuid
 INSTANCE_ID = _uuid.uuid4().hex[:8]
 
 def gsheet_claim_conv(conv_id: str, snippet_key: str) -> bool:
-    """Atomic lock qua GSheet LockService. True = mình được xử lý. False = instance khác đang xử lý."""
-    if not GSHEET_WEBHOOK:
-        return True  # không có webhook → không lock, cứ tiếp tục
-    # Chỉ dùng conv_id (không kèm snippet) — snippet thay đổi theo từng tin của khách
-    # sẽ tạo lock key khác → 2 instance đều claim được → gửi tin trùng
-    lock_key = f"conv_{conv_id}"
-    try:
-        r = requests.post(GSHEET_WEBHOOK, json={
-            "action"      : "claim_conv",
-            "lock_key"    : lock_key,
-            "instance_id" : INSTANCE_ID,
-        }, timeout=7)
-        return r.json().get("claimed", True)
-    except Exception as _e:
-        log(f"  ⚠️ claim_conv lỗi: {_e} — tiếp tục (Railway Teardown = 1 instance)")
-        return True  # fail open: Railway Teardown đảm bảo 1 instance → không sợ race
+    """Railway Teardown = 1 instance → không cần lock từ xa. Luôn return True."""
+    return True
 
 # ============================================================
 # TRẠNG THÁI SESSION
