@@ -249,13 +249,32 @@ def tg_hot_lead(lead: dict):
 
 
 def gsheet_check_report(key: str) -> bool:
-    """Kiểm tra báo cáo đã gửi chưa — dùng _report_sent dict (đã persist qua stats_today.json)"""
-    # _report_sent được load từ file khi restart → không bị mất qua Railway deploy
-    return _report_sent.get(key, False)
+    """Kiểm tra báo cáo đã gửi — in-memory trước, rồi Google Sheet _locks (persist qua deploy)."""
+    if _report_sent.get(key, False):
+        return True
+    try:
+        ws = _get_locks_sheet()
+        if ws is None:
+            return False
+        col = ws.col_values(1)
+        if key in col:
+            _report_sent[key] = True  # cache lại để lần sau không cần gọi Sheet
+            return True
+    except Exception as _e:
+        log(f"  ⚠️ check_report Sheet lỗi: {_e}")
+    return False
 
 def gsheet_mark_report(key: str):
-    """Đánh dấu báo cáo đã gửi — lưu vào _report_sent và save file ngay"""
+    """Đánh dấu đã gửi — lưu vào _locks Sheet (bền vững) + memory."""
     _report_sent[key] = True
+    try:
+        ws = _get_locks_sheet()
+        if ws:
+            from datetime import datetime, timezone, timedelta
+            ts = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M")
+            ws.append_row([key, "report", ts])
+    except Exception as _e:
+        log(f"  ⚠️ mark_report Sheet lỗi: {_e}")
     save_stats()
 
 def tg_report_14h_live(live: dict):
@@ -458,7 +477,25 @@ def _get_lead_sheet():
     _gspread_ws = sh.worksheet("LEAD THÁNG 6")
     return _gspread_ws
 
-_gspread_ws = None  # cache worksheet
+_gspread_ws = None       # cache lead worksheet
+_gspread_locks_ws = None  # cache _locks worksheet
+
+def _get_locks_sheet():
+    """Lấy worksheet '_locks' để lưu report dedup — tồn tại qua Railway deploy."""
+    import gspread as _gs
+    from google.oauth2.service_account import Credentials as _Creds
+    global _gspread_locks_ws
+    if _gspread_locks_ws is not None:
+        return _gspread_locks_ws
+    creds_path = os.path.join(_BASE_DIR, "credentials.json")
+    if not os.path.exists(creds_path):
+        return None
+    creds = _Creds.from_service_account_file(
+        creds_path, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+    gc = _gs.authorize(creds)
+    sh = gc.open_by_key("1yMbrjedTKMu51aSBLLA6EWkJ5Yg_A4Q_kPfkkBc6uSo")
+    _gspread_locks_ws = sh.worksheet("_locks")
+    return _gspread_locks_ws
 
 # Cột trong sheet "LEAD THÁNG 6" (1-based)
 _COL_STT      = 1   # A
