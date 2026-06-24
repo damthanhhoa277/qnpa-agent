@@ -391,10 +391,14 @@ def extract_lead_info(messages, customer_name: str) -> dict:
         if str(m.get("from", {}).get("id", "")) != PAGE_ID
     ).lower()
 
-    # SĐT — pattern 10 số bắt đầu bằng 0
-    phones = re.findall(r"0\d{9}", all_customer_text)
-    if phones:
-        lead["phone"] = phones[0]
+    # SĐT — 10 chữ số bắt đầu bằng 0, cho phép có khoảng trắng/gạch giữa các nhóm
+    # VD: 0982074838 | 0982 074 838 | 098-207-4838
+    raw_phones = re.findall(r"0[\d\s\-\.]{9,13}", all_customer_text)
+    for rp in raw_phones:
+        digits = re.sub(r"\D", "", rp)
+        if len(digits) == 10:
+            lead["phone"] = digits
+            break
 
     # Tuổi — "X tuổi", "X t", "X tháng"
     age_m = re.search(r"(\d{1,2})\s*(tuổi|t\b)", all_customer_text)

@@ -2,6 +2,7 @@
 // Deploy: Extensions → Apps Script → Deploy → New deployment → Web App → Execute as Me → Anyone
 // Paste URL vào GSHEET_WEBHOOK trong qnpa_agent.py
 
+const SPREADSHEET_ID    = "1yMbrjedTKMu51aSBLLA6EWkJ5Yg_A4Q_kPfkkBc6uSo";  // ID Google Sheet QNPA
 const SHEET_NAME_LEADS  = "LEAD THÁNG 6";
 const SHEET_NAME_LOCKS  = "_locks";       // sheet ẩn để lưu claim_conv + report marks
 const COL_CONV_KEY      = 1;              // cột A = conv_key (ID duy nhất, không trùng)
@@ -41,13 +42,27 @@ function doPost(e) {
   }
 }
 
+// ─── TÌM SHEET LEAD (tìm theo tên, fallback sang sheet đầu tiên không phải _locks) ──
+function getLeadSheet(ss) {
+  // Thử tên chính xác trước
+  let sheet = ss.getSheetByName(SHEET_NAME_LEADS);
+  if (sheet) return sheet;
+  // Thử tìm sheet có tên chứa "LEAD" (không phân biệt hoa thường)
+  const all = ss.getSheets();
+  for (let i = 0; i < all.length; i++) {
+    const n = all[i].getName().toUpperCase();
+    if (n.indexOf("LEAD") >= 0 && n.indexOf("LOCK") < 0) return all[i];
+  }
+  return null;
+}
+
 // ─── UPSERT LEAD ───────────────────────────────────────────────
 function upsertLead(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const ss     = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet  = ss.getSheetByName(SHEET_NAME_LEADS);
+    const ss     = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet  = getLeadSheet(ss);
     if (!sheet) return { action: "error", reason: "sheet not found: " + SHEET_NAME_LEADS };
 
     const convKey = (data.conv_key || "").trim();
@@ -113,7 +128,7 @@ function claimConv(lockKey, instanceId) {
   const lock = LockService.getScriptLock();
   lock.waitLock(8000);
   try {
-    const ss    = SpreadsheetApp.getActiveSpreadsheet();
+    const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
     let sheet   = ss.getSheetByName(SHEET_NAME_LOCKS);
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME_LOCKS);
@@ -122,7 +137,7 @@ function claimConv(lockKey, instanceId) {
 
     const now     = new Date();
     const lastRow = sheet.getLastRow();
-    const TTL_MS  = 60 * 1000; // lock hết hạn sau 60 giây
+    const TTL_MS  = 180 * 1000; // lock hết hạn sau 180 giây (3 phút) — đủ cho cả trường hợp Claude timeout 2 lần
 
     // Tìm existing lock cho key này
     if (lastRow >= 1) {
@@ -153,7 +168,7 @@ function claimConv(lockKey, instanceId) {
 // ─── REPORT DEDUP ──────────────────────────────────────────────
 function checkReport(key) {
   if (!key) return { sent: false };
-  const ss   = SpreadsheetApp.getActiveSpreadsheet();
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet  = ss.getSheetByName(SHEET_NAME_LOCKS);
   if (!sheet) return { sent: false };
   const lastRow = sheet.getLastRow();
@@ -167,7 +182,7 @@ function checkReport(key) {
 
 function markReport(key) {
   if (!key) return;
-  const ss   = SpreadsheetApp.getActiveSpreadsheet();
+  const ss   = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet  = ss.getSheetByName(SHEET_NAME_LOCKS);
   if (!sheet) { sheet = ss.insertSheet(SHEET_NAME_LOCKS); sheet.hideSheet(); }
   sheet.appendRow([key, "report", new Date().toISOString()]);
