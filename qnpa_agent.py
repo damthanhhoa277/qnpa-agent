@@ -1185,47 +1185,17 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         log(f"  ✓ Linh soạn: {reply[:80]}...")
 
-        # ── Anti-duplicate: random sleep + double Pancake check trước khi gửi ──
-        # Nếu 2 instance cùng soạn xong: instance nào ngủ ít hơn sẽ gửi trước,
-        # instance còn lại thức dậy thấy page đã gửi rồi → bỏ qua.
-        # ── Anti-duplicate: sleep ngẫu nhiên rộng + 3 lần check Pancake ──
-        # Instance nào ngủ ít hơn sẽ gửi trước; instance còn lại check lần 2/3 thấy page đã gửi → bỏ qua
-        import random as _rnd
-
-        def _last_msg_is_from_page(msgs):
-            if not msgs:
-                return False
-            return str(msgs[-1].get("from", {}).get("id", "")) == PAGE_ID
-
-        def _pancake_check(label):
-            try:
-                _msgs = get_messages(conv_id, customer_id=customer_id, limit=5)
-                if _last_msg_is_from_page(_msgs):
-                    log(f"  🔒 {label}: {customer} — page đã reply, bỏ qua")
-                    _replied_convs[conv_id] = snippet_key
-                    _last_replied[conv_id] = datetime.now(timezone.utc)
-                    return True
-            except Exception as _e:
-                log(f"  ⚠️ {label} lỗi: {_e}")
-            return False
-
-        # Check lần 1 trước khi ngủ
-        if _pancake_check("Pre-send #1"):
-            continue
-
-        # Ngủ random 3–8s — khoảng rộng để 2 instance không trùng nhau
-        _jitter = 0.5 + _rnd.uniform(0, 1.5)  # Railway Teardown = 1 instance → chỉ cần sleep ngắn
-        log(f"  ⏱ Anti-dup sleep {_jitter:.1f}s...")
-        time.sleep(_jitter)
-
-        # Check lần 2 sau khi ngủ — nếu instance kia đã gửi trong lúc ta ngủ
-        if _pancake_check("Pre-send #2"):
-            continue
-
-        # Sleep thêm 1s cố định rồi check lần 3 — lưới cuối cùng
-        time.sleep(0.5)
-        if _pancake_check("Pre-send #3"):
-            continue
+        # Railway Teardown = 1 instance → không cần multi-instance anti-dup
+        # Chỉ check 1 lần: nếu page đã reply rồi (do race hiếm gặp) thì bỏ qua
+        try:
+            _pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=3)
+            if _pre_msgs and str(_pre_msgs[-1].get("from", {}).get("id", "")) == PAGE_ID:
+                log(f"  🔒 Pre-send: {customer} — page đã reply, bỏ qua")
+                _replied_convs[conv_id] = reply[:60]
+                _last_replied[conv_id] = datetime.now(timezone.utc)
+                continue
+        except Exception as _pe:
+            log(f"  ⚠️ Pre-send check lỗi: {_pe}")
 
         result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
         if not isinstance(result, dict):
@@ -1253,7 +1223,10 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
                 # Đã có SĐT → không cần chăm thêm
                 _followup_store.pop(conv_id, None)
 
-            # Không ghi Sheet khi chưa có SĐT — chỉ nhập lead khi đã xin được số điện thoại
+            # Lưu reply text vào _replied_convs — Pancake đổi snippet sang reply text sau khi gửi
+            # Nếu lưu snippet_key (customer msg) thì next cycle snippet != replied_convs → gửi trùng
+            _replied_convs[conv_id] = reply[:60]
+            save_replied_convs()
 
         else:
             err_msg = result.get("message", str(result))[:120]
