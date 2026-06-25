@@ -3,3 +3,5 @@ psutil
 anthropic
 python-dotenv
 python-docx
+gspread
+google-auth
