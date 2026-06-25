@@ -227,7 +227,15 @@ def tg_alert(text):
 
 
 def tg_hot_lead(lead: dict):
-    """Gửi HOT LEAD về nhóm SALE khi có SĐT"""
+    """Gửi HOT LEAD về nhóm SALE khi có SĐT — dedup bằng _locks Sheet để tránh gửi trùng qua restart/deploy"""
+    phone = lead.get("phone", "")
+    if phone:
+        date_str = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m/%Y")
+        alert_key = f"hotlead_{phone}_{date_str}"
+        if gsheet_check_report(alert_key):
+            log(f"  🔒 HOT LEAD dedup: {phone} đã gửi hôm nay — bỏ qua")
+            return
+        gsheet_mark_report(alert_key)
     now_str = datetime.now(timezone(timedelta(hours=7))).strftime("%H:%M")
     age = lead.get("age", "Chưa rõ")
     be_str = f"{age} tuổi" if age and age != "Chưa rõ" else "Chưa rõ"
@@ -536,6 +544,7 @@ def gsheet_upsert_lead(lead: dict, source_type: str = "inbox") -> str:
 
         conv_key = lead.get("conv_key", "").strip()
         if not conv_key:
+            log("  ⚠️ gsheet_upsert_lead: conv_key rỗng — bỏ qua")
             return "error"
 
         from datetime import datetime, timezone, timedelta
