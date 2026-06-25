@@ -1031,16 +1031,15 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
         if not conv_id:
             continue
 
-        # Bỏ qua nếu page đã trả lời — nhưng kiểm tra xem bot hay nhân viên gửi
-        if last_sender_id == PAGE_ID:
+        # Bỏ qua nếu page đã trả lời — CHỈ áp dụng cho inbox
+        # Comment: last_sent_by == PAGE_ID vì page là chủ bài đăng → không dùng để dedup
+        if last_sender_id == PAGE_ID and source_type == "inbox":
             snippet      = c.get("snippet", "")[:120]
             snippet_key  = snippet[:60]
             customers    = c.get("customers", [])
             _c0          = customers[0] if customers else {}
             _c0          = _c0 if isinstance(_c0, dict) else {}
             cust_name    = _c0.get("name", "?")
-            # Nếu conv này KHÔNG có trong _replied_convs (bot chưa reply)
-            # → nhân viên gửi thủ công → đếm vào followup_manual
             bot_sent_key = _replied_convs.get(conv_id)
             already_tracked = _human_sent_tracked.get(conv_id)
             if bot_sent_key != snippet_key and already_tracked != snippet_key:
@@ -1382,17 +1381,20 @@ def warm_up_replied_convs():
         inbox    = get_conversations(50, "inbox")
         comments = get_conversations(30, "comment")
         count = 0
-        for c in (inbox + comments):
-            if not isinstance(c, dict):
-                continue
-            _lsb           = c.get("last_sent_by") or {}
-            last_sent_by   = _lsb if isinstance(_lsb, dict) else {}
-            last_sender_id = str(last_sent_by.get("id", ""))
-            conv_id        = c.get("id", "")
-            snippet_key    = c.get("snippet", "")[:60]
+        # inbox: dùng last_sent_by để biết page đã reply chưa
+        for c in inbox:
+            if not isinstance(c, dict): continue
+            _lsb = c.get("last_sent_by") or {}
+            last_sender_id = str((_lsb if isinstance(_lsb, dict) else {}).get("id", ""))
+            conv_id = c.get("id", "")
+            snippet_key = c.get("snippet", "")[:60]
             if conv_id and last_sender_id == PAGE_ID:
                 _replied_convs[conv_id] = snippet_key
                 count += 1
+
+        # comment: KHÔNG dùng last_sent_by vì page = chủ bài đăng → luôn == PAGE_ID
+        # Chỉ đánh dấu nếu bot đã từng reply conv này (có trong _replied_convs từ file)
+        # → không làm gì thêm ở đây, để process_conv_list tự xử lý
         log(f"✅ Warm-up xong: đánh dấu {count} conv đã reply — sẽ không reply lại")
     except Exception as e:
         log(f"⚠️ Warm-up lỗi: {e}")
