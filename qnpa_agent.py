@@ -483,16 +483,25 @@ def _get_gspread_spreadsheet():
     if _gspread_sh is not None:
         return _gspread_sh
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-    # Ưu tiên env var (Railway) → file local
+    import base64 as _b64
+    # Ưu tiên GOOGLE_CREDS_B64 (base64) → GOOGLE_CREDENTIALS_JSON (raw json) → file local
+    creds_b64 = os.environ.get("GOOGLE_CREDS_B64", "")
     creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
-    if creds_json:
+    if creds_b64:
+        info = _json.loads(_b64.b64decode(creds_b64).decode("utf-8"))
+        creds = _Creds.from_service_account_info(info, scopes=SCOPES)
+        log("  ✅ Dùng GOOGLE_CREDS_B64")
+    elif creds_json:
         info = _json.loads(creds_json)
         creds = _Creds.from_service_account_info(info, scopes=SCOPES)
+        log("  ✅ Dùng GOOGLE_CREDENTIALS_JSON")
     else:
         creds_path = os.path.join(_BASE_DIR, "credentials.json")
         if not os.path.exists(creds_path):
+            log("  ⚠️ Không tìm thấy credentials — gspread không hoạt động")
             return None
         creds = _Creds.from_service_account_file(creds_path, scopes=SCOPES)
+        log("  ✅ Dùng credentials.json local")
     gc = _gs.authorize(creds)
     _gspread_sh = gc.open_by_key(_SPREADSHEET_ID)
     return _gspread_sh
