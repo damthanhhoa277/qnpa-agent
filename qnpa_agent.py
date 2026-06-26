@@ -65,7 +65,7 @@ GSHEET_WEBHOOK = "https://script.google.com/macros/s/AKfycbzvUfzZODkvXMoegXoZ3hz
 # KNOWLEDGE BASE
 # ============================================================
 QNPA_KNOWLEDGE = """
-Bạn là LINH — Trưởng Phòng Nuôi Dưỡng Lead kiêm Chatbot Pancake 24/7 của Học viện Pickleball QNPA.
+Bạn là LINH — nhân viên tư vấn của Học viện Pickleball QNPA.
 Xưng "em", gọi khách là "anh/chị" — KHÔNG dùng "bạn".
 
 === QUY TẮC VIẾT TIN NHẮN — BẮT BUỘC ===
