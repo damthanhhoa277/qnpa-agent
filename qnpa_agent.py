@@ -1209,15 +1209,17 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
 
         # Railway Teardown = 1 instance → không cần multi-instance anti-dup
         # Chỉ check 1 lần: nếu page đã reply rồi (do race hiếm gặp) thì bỏ qua
-        try:
-            _pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=3)
-            if _pre_msgs and str(_pre_msgs[-1].get("from", {}).get("id", "")) == PAGE_ID:
-                log(f"  🔒 Pre-send: {customer} — page đã reply, bỏ qua")
-                _replied_convs[conv_id] = reply[:60]
-                _last_replied[conv_id] = datetime.now(timezone.utc)
-                continue
-        except Exception as _pe:
-            log(f"  ⚠️ Pre-send check lỗi: {_pe}")
+        # Pre-send check: chỉ áp dụng cho inbox — comment luôn có last_msg từ page (chủ bài đăng)
+        if source_type == "inbox":
+            try:
+                _pre_msgs = get_messages(conv_id, customer_id=customer_id, limit=3)
+                if _pre_msgs and str(_pre_msgs[-1].get("from", {}).get("id", "")) == PAGE_ID:
+                    log(f"  🔒 Pre-send: {customer} — page đã reply, bỏ qua")
+                    _replied_convs[conv_id] = reply[:60]
+                    _last_replied[conv_id] = datetime.now(timezone.utc)
+                    continue
+            except Exception as _pe:
+                log(f"  ⚠️ Pre-send check lỗi: {_pe}")
 
         result = send_message(conv_id, reply, customer_id=customer_id, source_type=source_type)
         if not isinstance(result, dict):
