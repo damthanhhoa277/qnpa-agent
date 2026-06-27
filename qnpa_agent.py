@@ -589,6 +589,16 @@ def gsheet_upsert_lead(lead: dict, source_type: str = "inbox") -> str:
                 existing_row = i + 1  # 1-based
                 break
 
+        # Fallback: tìm theo SĐT (tránh insert trùng khi bot restart + conv_key cũ chưa có)
+        if not existing_row and lead.get("phone"):
+            phone_clean = re.sub(r"\D", "", lead["phone"])
+            col_sdt = ws.col_values(_COL_SDT)
+            for i, val in enumerate(col_sdt[1:], start=2):  # bỏ header
+                if re.sub(r"\D", "", str(val)) == phone_clean:
+                    existing_row = i
+                    log(f"  🔍 Tìm thấy SĐT trùng dòng {i} — update thay vì insert mới")
+                    break
+
         if existing_row:
             # Update — chỉ ghi đè trường không rỗng
             import gspread as _gs2

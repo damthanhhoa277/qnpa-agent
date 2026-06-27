@@ -100,6 +100,19 @@ function upsertLead(data) {
       data.tinh_trang || "Mới tạo",
     ];
 
+    // Nếu không tìm thấy theo conv_key → thử tìm theo SĐT (tránh insert trùng khi bot restart)
+    if (existingRow < 0 && data.sdt && lastRow >= 2) {
+      const phones = sheet.getRange(2, COL_PHONE, lastRow - 1, 1).getValues();
+      const sdt = (data.sdt || "").toString().replace(/\D/g, "");
+      for (let i = 0; i < phones.length; i++) {
+        const existing_phone = (phones[i][0] || "").toString().replace(/\D/g, "");
+        if (sdt && existing_phone === sdt) {
+          existingRow = i + 2;
+          break;
+        }
+      }
+    }
+
     if (existingRow > 0) {
       // Cập nhật — chỉ ghi đè các trường không rỗng
       const existing = sheet.getRange(existingRow, COL_CONV_KEY, 1, rowData.length).getValues()[0];
