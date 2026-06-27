@@ -965,6 +965,40 @@ def track_claude_call():
     if count in (200, 500):
         tg_alert(f"⚠️ Claude API: đã gọi {count} lần hôm nay ({VN_date}). Kiểm tra agent có bị lặp không.")
 
+
+def claude_calls_today_count():
+    """Số lần đã gọi Claude hôm nay (tự reset khi sang ngày mới — giờ VN)."""
+    VN_date = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+    if _claude_calls_today["date"] != VN_date:
+        _claude_calls_today["date"]  = VN_date
+        _claude_calls_today["count"] = 0
+    return _claude_calls_today["count"]
+
+
+def _alert_daily_cap_once():
+    """Cảnh báo Telegram tối đa 1 lần/giờ khi chạm trần Claude/ngày."""
+    now_ts = datetime.now(timezone.utc)
+    last = getattr(_alert_daily_cap_once, "_last", None)
+    if not last or (now_ts - last).total_seconds() > 3600:
+        _alert_daily_cap_once._last = now_ts
+        tg_alert(
+            f"🛑 Đã gọi Claude {MAX_CLAUDE_CALLS_PER_DAY}+ lần hôm nay — bot TẠM DỪNG gọi Claude "
+            f"để tránh đốt tiền. Kiểm tra agent có bị lặp không (hoặc tăng MAX_CLAUDE_CALLS_PER_DAY nếu thật sự đông khách)."
+        )
+
+
+def _alert_page_restricted_once():
+    """Cảnh báo Telegram tối đa 1 lần/30 phút khi page bị hạn chế (551)."""
+    now_ts = datetime.now(timezone.utc)
+    last = getattr(_alert_page_restricted_once, "_last", None)
+    if not last or (now_ts - last).total_seconds() > 1800:
+        _alert_page_restricted_once._last = now_ts
+        tg_alert(
+            f"⚠️ Page bị hạn chế gửi tin (551) — bot tạm dừng trả lời {PAGE_RESTRICT_PAUSE_MIN} phút "
+            f"để tránh đốt tiền. Thường do gửi/nhắn hàng loạt khách cũ."
+        )
+
+
 def load_human_sent():
     """Load danh sách conv nhân viên đã gửi hôm nay (để không đếm 2 lần sau restart)"""
     import json as _json
@@ -1052,11 +1086,24 @@ def log(msg: str):
 # XỬ LÝ DANH SÁCH HỘI THOẠI
 # ============================================================
 MAX_CLAUDE_CALLS_PER_CYCLE = 3   # Tối đa 3 Claude calls/cycle — tránh burst 500 lần/ngày sau restart
+MAX_CLAUDE_CALLS_PER_DAY   = 1000  # 🛡️ Trần cứng/ngày — vượt là DỪNG gọi Claude (chặn đốt tiền do lỗi lặp). Tăng nếu thật sự đông khách.
+PAGE_RESTRICT_PAUSE_MIN    = 30    # 🛡️ Gặp 551 (page bị hạn chế gửi tin) → tạm dừng bot bao nhiêu phút
+_page_restricted_until     = None  # datetime UTC — bot tạm dừng trả lời tới thời điểm này (None = đang chạy bình thường)
 
 def process_conv_list(convs: list, source_type: str = "inbox"):
+    global _page_restricted_until
     processed = 0
     claude_calls_this_cycle = 0
     errors    = []
+
+    # 🛡️ VAN AN TOÀN 1 — Page bị Facebook hạn chế gửi tin (551): tạm dừng TOÀN BỘ,
+    #    không gọi Claude cho tới khi hết hạn chế (tránh vòng lặp đốt tiền).
+    if _page_restricted_until and datetime.now(timezone.utc) < _page_restricted_until:
+        return processed, errors
+    # 🛡️ VAN AN TOÀN 2 — Vượt trần gọi Claude/ngày: dừng hẳn để chặn đốt tiền do lỗi lặp.
+    if claude_calls_today_count() >= MAX_CLAUDE_CALLS_PER_DAY:
+        _alert_daily_cap_once()
+        return processed, errors
 
     # Dedup: Pancake đôi khi trả về cùng conv_id 2 lần trong 1 lần poll
     seen_in_cycle: set = set()
@@ -1294,10 +1341,14 @@ def process_conv_list(convs: list, source_type: str = "inbox"):
             err_msg = result.get("message", str(result))[:120]
             log(f"  ✗ Pancake từ chối gửi: {err_msg}")
             if "551" in err_msg or "không có mặt" in err_msg.lower():
-                # Tài khoản hạn chế tạm thời — thử lại sau 5 phút
-                _last_replied[conv_id] = datetime.now(timezone.utc) - timedelta(seconds=240)
-                _replied_convs.pop(conv_id, None)  # xóa để retry qua được check snippet
-                log(f"  ⏭ 551 {customer} — thử lại sau ~5 phút")
+                # 🛡️ Page bị Facebook hạn chế gửi tin (thường do nhắn/gửi hàng loạt khách cũ).
+                # Đây là lỗi TOÀN CỤC → tạm dừng TOÀN BỘ bot, KHÔNG retry từng conv.
+                # (Lỗi cũ: retry vô tận, mỗi vòng gọi Claude → đốt tiền thẻ liên tục.)
+                _page_restricted_until = datetime.now(timezone.utc) + timedelta(minutes=PAGE_RESTRICT_PAUSE_MIN)
+                _replied_convs.pop(conv_id, None)  # cho retry sau khi hết hạn chế
+                _alert_page_restricted_once()
+                log(f"  ⛔ 551 — page bị hạn chế, tạm dừng bot {PAGE_RESTRICT_PAUSE_MIN} phút")
+                break
             elif "100" in err_msg or "không tìm thấy" in err_msg.lower():
                 # User không tồn tại — block vĩnh viễn
                 _blocked_convs.add(conv_id)
