@@ -78,6 +78,7 @@ metadata:
 - AppScript `upsertLead`: tìm conv_key trước khi insert — chỉ update nếu đã có
 - Railway Teardown mode: đảm bảo chỉ 1 instance chạy
 - `claim_conv` exception → return True (fail open) vì Teardown = 1 instance
+- `tg_hot_lead` dedup dùng **GSHEET_WEBHOOK** (AppScript `check_report`/`mark_report`) thay vì gspread `_locks` trực tiếp — atomic hơn khi 2 instance race (27/06/2026)
 
 ---
 

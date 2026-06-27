@@ -227,15 +227,34 @@ def tg_alert(text):
 
 
 def tg_hot_lead(lead: dict):
-    """Gửi HOT LEAD về nhóm SALE khi có SĐT — dedup bằng _locks Sheet để tránh gửi trùng qua restart/deploy"""
+    """Gửi HOT LEAD về nhóm SALE khi có SĐT — dedup atomic qua GSHEET_WEBHOOK (AppScript LockService)"""
     phone = lead.get("phone", "")
     if phone:
         date_str = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m/%Y")
         alert_key = f"hotlead_{phone}_{date_str}"
-        if gsheet_check_report(alert_key):
-            log(f"  🔒 HOT LEAD dedup: {phone} đã gửi hôm nay — bỏ qua")
-            return
-        gsheet_mark_report(alert_key)
+        # Ưu tiên GSHEET_WEBHOOK (atomic qua AppScript LockService — an toàn với 2 instance)
+        if GSHEET_WEBHOOK:
+            try:
+                rj = requests.post(GSHEET_WEBHOOK,
+                                   json={"action": "check_report", "report_key": alert_key},
+                                   timeout=5).json()
+                if isinstance(rj, dict) and rj.get("sent"):
+                    log(f"  🔒 HOT LEAD dedup (webhook): {phone} đã gửi hôm nay — bỏ qua")
+                    return
+                requests.post(GSHEET_WEBHOOK,
+                              json={"action": "mark_report", "report_key": alert_key},
+                              timeout=5)
+            except Exception as _we:
+                log(f"  ⚠️ HOT LEAD webhook dedup lỗi: {_we} — dùng fallback gspread")
+                if gsheet_check_report(alert_key):
+                    log(f"  🔒 HOT LEAD dedup (gspread): {phone} đã gửi hôm nay — bỏ qua")
+                    return
+                gsheet_mark_report(alert_key)
+        else:
+            if gsheet_check_report(alert_key):
+                log(f"  🔒 HOT LEAD dedup: {phone} đã gửi hôm nay — bỏ qua")
+                return
+            gsheet_mark_report(alert_key)
     now_str = datetime.now(timezone(timedelta(hours=7))).strftime("%H:%M")
     age = lead.get("age", "Chưa rõ")
     be_str = f"{age} tuổi" if age and age != "Chưa rõ" else "Chưa rõ"
