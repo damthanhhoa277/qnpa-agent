@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trại Hè Pickleball 2026 — Quảng Ninh Pickleball Academy</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #1a7a4a;
+      --green2: #22a05a;
+      --yellow: #f5c518;
+      --dark:   #111827;
+      --gray:   #6b7280;
+      --light:  #f9fafb;
+      --white:  #ffffff;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,.10);
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: var(--dark);
+      background: var(--white);
+      line-height: 1.65;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+    .btn-main {
+      display: inline-block;
+      background: var(--yellow);
+      color: var(--dark);
+      font-weight: 800;
+      font-size: 1.1rem;
+      padding: 16px 38px;
+      border-radius: 50px;
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(245,197,24,.45);
+      transition: transform .15s, box-shadow .15s;
+      text-align: center;
+    }
+    .btn-main:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(245,197,24,.55); }
+    .btn-ghost {
+      display: inline-block;
+      border: 2px solid var(--green2);
+      color: var(--green2);
+      font-weight: 700;
+      font-size: .95rem;
+      padding: 11px 28px;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: background .15s, color .15s;
+    }
+    .btn-ghost:hover { background: var(--green2); color: #fff; }
+    .section { padding: 64px 0; }
+    .section-alt { background: var(--light); }
+    h2.section-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--dark);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--gray);
+      margin-bottom: 40px;
+      font-size: 1.02rem;
+    }
+    .tag {
+      display: inline-block;
+      background: #dcfce7;
+      color: var(--green);
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 50px;
+      margin-bottom: 14px;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    /* TOP BAR */
+    .topbar {
+      background: var(--green);
+      color: #fff;
+      text-align: center;
+      padding: 10px 20px;
+      font-size: .9rem;
+      font-weight: 600;
+    }
+    .topbar a { color: var(--yellow); text-decoration: none; }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(160deg, #0d3d23 0%, #1a7a4a 55%, #22a05a 100%);
+      color: #fff;
+      padding: 60px 0 52px;
+    }
+    .hero-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+    .hero-text { text-align: center; max-width: 680px; }
+    .hero-eyebrow {
+      font-size: .85rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--yellow);
+      margin-bottom: 14px;
+    }
+    .hero-headline {
+      font-size: clamp(1.9rem, 5vw, 2.7rem);
+      font-weight: 900;
+      line-height: 1.2;
+      margin-bottom: 18px;
+    }
+    .hero-headline em { color: var(--yellow); font-style: normal; }
+    .hero-sub {
+      font-size: 1.08rem;
+      color: #d1fae5;
+      margin-bottom: 28px;
+      line-height: 1.7;
+    }
+    .hero-cta-group { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+    .hero-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .hero-stat {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: var(--radius);
+      padding: 14px 22px;
+      text-align: center;
+      min-width: 110px;
+    }
+    .hero-stat strong { display: block; font-size: 1.7rem; font-weight: 900; color: var(--yellow); }
+    .hero-stat span { font-size: .8rem; color: #d1fae5; }
+
+    /* VIDEO */
+    .video-wrap {
+      width: 100%;
+      max-width: 720px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,.4);
+      background: #000;
+    }
+    .video-wrap video {
+      width: 100%;
+      display: block;
+      max-height: 420px;
+      object-fit: cover;
+    }
+
+    /* PAIN */
+    .pain-list { list-style: none; display: grid; gap: 14px; }
+    .pain-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: #fff7ed;
+      border-left: 4px solid #f97316;
+      border-radius: 8px;
+      padding: 16px 18px;
+      font-size: 1rem;
+    }
+    .pain-list li .icon { font-size: 1.3rem; margin-top: 1px; flex-shrink: 0; }
+
+    /* SOLUTION */
+    .solution-intro {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      max-width: 680px;
+      margin: 0 auto 36px;
+      text-align: center;
+    }
+
+    /* TRUST */
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+    }
+    .trust-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      border-top: 4px solid var(--green2);
+    }
+    .trust-card .num { font-size: 2.4rem; font-weight: 900; color: var(--green); line-height: 1; }
+    .trust-card .label { font-size: .88rem; color: var(--gray); margin-top: 8px; }
+
+    /* PROGRAM */
+    .phase-list { display: grid; gap: 14px; }
+    .phase-item {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 18px 20px;
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .phase-num {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      font-weight: 800;
+      font-size: .95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .phase-item h4 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .phase-item p { font-size: .9rem; color: var(--gray); }
+
+    /* BENEFITS */
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .benefit-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 22px 20px;
+      box-shadow: var(--shadow);
+    }
+    .benefit-card .ico { font-size: 2rem; margin-bottom: 10px; }
+    .benefit-card h4 { font-weight: 700; margin-bottom: 6px; }
+    .benefit-card p { font-size: .9rem; color: var(--gray); }
+
+    /* COACH */
+    .coach-box {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: var(--shadow);
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+    }
+    .coach-avatar {
+      flex-shrink: 0;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: #dcfce7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+    }
+    .coach-box h4 { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+    .coach-box p { font-size: .93rem; color: var(--gray); line-height: 1.7; }
+    .fb-video-wrap {
+      width: 100%;
+      margin-top: 24px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #000;
+    }
+    .fb-video-wrap iframe {
+      width: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* FOUNDER */
+    .founder-box {
+      display: flex;
+      gap: 28px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .founder-photo {
+      flex-shrink: 0;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid var(--green2);
+      background: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+      overflow: hidden;
+    }
+    .founder-text blockquote {
+      font-size: 1.05rem;
+      font-style: italic;
+      color: var(--dark);
+      border-left: 4px solid var(--green2);
+      padding-left: 16px;
+      margin-top: 10px;
+      line-height: 1.8;
+    }
+    .founder-name { font-weight: 800; margin-top: 8px; }
+    .founder-title { font-size: .88rem; color: var(--gray); }
+
+    /* TESTIMONIALS */
+    .testi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+    }
+    .testi-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+      border-top: 3px solid var(--yellow);
+    }
+    .testi-stars { color: var(--yellow); font-size: 1.1rem; margin-bottom: 10px; }
+    .testi-body { font-size: .95rem; line-height: 1.7; font-style: italic; color: var(--dark); }
+    .testi-author { margin-top: 14px; font-weight: 700; font-size: .88rem; }
+    .testi-info { font-size: .8rem; color: var(--gray); }
+
+    /* INFO TABLE */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .info-table tr:nth-child(even) td { background: #f0fdf4; }
+    .info-table td {
+      padding: 14px 20px;
+      font-size: .95rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .info-table td:first-child { font-weight: 700; color: var(--green); width: 38%; }
+
+    /* FAQ */
+    .faq-list { display: grid; gap: 12px; }
+    .faq-item {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+    }
+    .faq-item summary {
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after { content: '＋'; font-size: 1.2rem; color: var(--green2); }
+    details[open] summary::after { content: '－'; }
+    .faq-item p { margin-top: 12px; font-size: .93rem; color: var(--gray); line-height: 1.7; }
+
+    /* CTA FINAL */
+    .cta-final {
+      background: linear-gradient(135deg, #0d3d23, #1a7a4a);
+      color: #fff;
+      text-align: center;
+      padding: 72px 20px;
+    }
+    .cta-final h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 900; margin-bottom: 14px; }
+    .cta-final p { font-size: 1.05rem; color: #d1fae5; margin-bottom: 32px; }
+    .cta-sub { font-size: .85rem; color: #86efac; margin-top: 14px; }
+
+    /* STICKY CTA */
+    .sticky-cta {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--green);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 999;
+      box-shadow: 0 -4px 16px rgba(0,0,0,.15);
+    }
+    .sticky-cta span { color: #d1fae5; font-size: .92rem; font-weight: 600; }
+    @media (max-width: 520px) { .sticky-cta span { display: none; } }
+
+    /* FOOTER */
+    footer {
+      background: var(--dark);
+      color: #9ca3af;
+      text-align: center;
+      padding: 28px 20px 80px;
+      font-size: .85rem;
+    }
+    footer strong { color: #fff; }
+
+    /* RESPONSIVE */
+    @media (max-width: 640px) {
+      .coach-box { flex-direction: column; }
+      .founder-box { flex-direction: column; align-items: center; text-align: center; }
+      .founder-text blockquote { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  📞 Hotline tư vấn miễn phí: <a href="tel:0888484466">0888 484 466</a>
+  &nbsp;|&nbsp;
+  💬 Zalo ngay: <a href="https://zalo.me/0888484466">zalo.me/0888484466</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-inner">
+
+      <!-- VIDEO: đổi tên file bên dưới nếu muốn dùng video khác (video 1.mp4 ... video 5.mp4) -->
+      <div class="video-wrap">
+        <video controls preload="metadata">
+          <source src="NÃO CỦA HOA/video 6.mp4" type="video/mp4" />
+          Trình duyệt của bạn không hỗ trợ video.
+        </video>
+      </div>
+
+      <div class="hero-text">
+        <div class="hero-eyebrow">🏓 Quảng Ninh Pickleball Academy · Hạ Long</div>
+        <h1 class="hero-headline">
+          Cho con 1 mùa hè<br/>
+          <em>năng động · tự tin · không màn hình</em>
+        </h1>
+        <p class="hero-sub">
+          Chương trình Trại Hè Pickleball dành cho trẻ từ 6 tuổi —
+          học kỹ thuật chuẩn, rèn kỷ luật, kết bạn mới,
+          và thực sự <strong style="color:#fff">yêu thích vận động</strong> sau mùa hè đầu tiên.
+        </p>
+        <div class="hero-cta-group">
+          <a href="https://zalo.me/0888484466" class="btn-main">
+            🎯 Đăng ký học thử miễn phí
+          </a>
+          <a href="tel:0888484466" class="btn-ghost" style="border-color:#d1fae5;color:#d1fae5;">
+            📞 Gọi ngay tư vấn
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong>92%</strong>
+            <span>tiếp tục sau buổi học thử</span>
+          </div>
+          <div class="hero-stat">
+            <strong>60+</strong>
+            <span>gia đình đã tin tưởng</span>
+          </div>
+          <div class="hero-stat">
+            <strong>15</strong>
+            <span>suất/đợt · sĩ số nhỏ</span>
+          </div>
+          <div class="hero-stat">
+            <strong>Từ 6</strong>
+            <span>tuổi trở lên</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PAIN POINTS -->
+<section class="section">
+  <div class="container">
+    <span class="tag">Bố mẹ đang lo điều này?</span>
+    <h2 class="section-title">Mùa hè dài — con chỉ biết ôm điện thoại?</h2>
+    <p class="section-sub">Nhiều phụ huynh Hạ Long đang đối mặt với những trăn trở này:</p>
+    <ul class="pain-list">
+      <li>
+        <span class="icon">📱</span>
+        <div>Con nghỉ hè là <strong>dán mắt vào điện thoại, iPad</strong> suốt ngày — bố mẹ nhắc mãi không thay đổi được.</div>
+      </li>
+      <li>
+        <span class="icon">🏠</span>
+        <div>Không có hoạt động phù hợp ở Hạ Long cho độ tuổi này — <strong>gửi con đi đâu vừa an toàn vừa có ích?</strong></div>
+      </li>
+      <li>
+        <span class="icon">🤝</span>
+        <div>Con <strong>ít giao tiếp, ngại bạn bè</strong>, không tự tin khi tham gia nhóm — mãi không thay đổi dù bố mẹ lo.</div>
+      </li>
+      <li>
+        <span class="icon">💪</span>
+        <div>Muốn con <strong>rèn thể chất, kỷ luật</strong> nhưng chưa tìm được môn phù hợp — không quá intense, không quá nhẹ.</div>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- SOLUTION + TRUST NUMBERS -->
+<section class="section section-alt">
+  <div class="container">
+    <span class="tag">Giải pháp</span>
+    <h2 class="section-title">Pickleball — môn thể thao hoàn hảo cho trẻ hè này</h2>
+    <p class="solution-intro">
+      Pickleball dễ học, vui từ buổi đầu tiên, không cần nền tảng thể thao trước đó.
+      Chỉ sau vài buổi, con <strong>tự tin cầm vợt, chơi cùng bạn</strong> — và quan trọng hơn,
+      <em>chủ động xin bố mẹ đi tập</em> thay vì phải nhắc.
+    </p>
+    <div class="trust-grid">
+      <div class="trust-card">
+        <div class="num">92%</div>
+        <div class="label">học viên tiếp tục đăng ký sau buổi học thử đầu tiên</div>
+      </div>
+      <div class="trust-card">
+        <div class="num">60+</div>
+        <div class="label">gia đình Hạ Long đã tin tưởng gửi con tại QNPA</div>
+      </div>
+      <div class="trust-card">
+        <div class="num">2h</div>
+        <div class="label">mỗi buổi — vận động đủ, không quá sức, T2 đến T6</div>
+      </div>
+      <div class="trust-card">
+        <div class="num">15</div>
+        <div class="label">học viên/đợt — HLV chú ý được từng bé</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRAM -->
+<section class="section">
+  <div class="container">
+    <span class="tag">Chương trình học</span>
+    <h2 class="section-title">Lộ trình 3 tháng — từ chưa biết đến tự thi đấu</h2>
+    <p class="section-sub">7 giai đoạn được thiết kế khoa học, phù hợp tâm lý trẻ em</p>
+    <div class="phase-list">
+      <div class="phase-item">
+        <div class="phase-num">1</div>
+        <div>
+          <h4>Làm quen bộ môn</h4>
+          <p>Làm quen sân bãi, dụng cụ, luật chơi cơ bản và quy tắc an toàn — con tự tin bước vào lớp từ ngày đầu.</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num">2</div>
+        <div>
+          <h4>Khởi động &amp; vận động</h4>
+          <p>Trò chơi chạy tiếp sức, di chuyển bước ngang — tăng sức bền và phản xạ theo cách con thích nhất.</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num">3</div>
+        <div>
+          <h4>Dink &amp; cảm giác bóng</h4>
+          <p>Kỹ thuật Dink — nền tảng của mọi pha bóng. Thi đấu Dink tích điểm tạo hứng khởi ngay từ tuần đầu.</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num">4</div>
+        <div>
+          <h4>Bộ chân di chuyển</h4>
+          <p>Di chuyển đúng kỹ thuật, phối hợp chân–tay — con nhanh hơn và ít mắc lỗi hơn trên sân.</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num">5</div>
+        <div>
+          <h4>Volley</h4>
+          <p>Volley là nền tảng của Drive — HLV chú trọng tư thế chuẩn từ đầu để con không phải sửa lại sau này.</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num">6</div>
+        <div>
+          <h4>Phát bóng &amp; đỡ giao bóng</h4>
+          <p>Sau khi đã có Dink và Volley, con hoàn thiện kỹ năng để tự tin bắt đầu bất kỳ pha bóng nào.</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num">7</div>
+        <div>
+          <h4>Luật &amp; thi đấu</h4>
+          <p>Thi đấu đôi thật sự, tự đếm điểm, làm trọng tài — và mini game tích điểm đổi thưởng mỗi buổi học.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS -->
+<section class="section section-alt">
+  <div class="container">
+    <span class="tag">Con nhận được gì</span>
+    <h2 class="section-title">Sau 1 tháng Trại Hè, con bạn thay đổi thế nào?</h2>
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="ico">💪</div>
+        <h4>Thể chất khỏe mạnh</h4>
+        <p>Tăng sức bền, phản xạ, phối hợp tay–mắt — cơ sở thể lực tốt cho năm học mới.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="ico">🎯</div>
+        <h4>Kỹ thuật nền tảng</h4>
+        <p>Dink, Volley, Phát bóng — con nắm vững để tiếp tục lên lớp Cơ Bản nếu thích.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="ico">😊</div>
+        <h4>Tự tin &amp; giao tiếp</h4>
+        <p>Mạnh dạn hơn khi giao tiếp, sẵn sàng tham gia hoạt động tập thể.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="ico">⏰</div>
+        <h4>Kỷ luật tích cực</h4>
+        <p>Đúng giờ, nghe HLV, tuân thủ nội quy — thói quen tốt hình thành tự nhiên qua thể thao.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="ico">🤝</div>
+        <h4>Tinh thần đồng đội</h4>
+        <p>Hòa đồng, hợp tác, hỗ trợ bạn cùng lớp — kỹ năng quan trọng suốt đời.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="ico">📋</div>
+        <h4>Đánh giá năng khiếu</h4>
+        <p>Bố mẹ có cơ sở rõ ràng để định hướng lộ trình tiếp theo phù hợp cho con.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COACH -->
+<section class="section">
+  <div class="container">
+    <span class="tag">Huấn luyện viên</span>
+    <h2 class="section-title">Người đồng hành cùng con trên sân</h2>
+    <p class="section-sub">HLV không chỉ dạy kỹ thuật — mà còn truyền cảm hứng yêu thể thao</p>
+    <div class="coach-box">
+      <div class="coach-avatar">🏓</div>
+      <div>
+        <h4>Đội ngũ HLV giàu kinh nghiệm — Quảng Ninh Pickleball Academy</h4>
+        <p>
+          HLV của QNPA được lựa chọn kỹ lưỡng: <strong>giàu kinh nghiệm thực chiến</strong>,
+          kiên nhẫn và tận tâm với trẻ em, biết cách tạo hứng khởi cho con ngay từ buổi đầu tiên.
+        </p>
+        <p style="margin-top:10px;">
+          Với sĩ số tối đa <strong>15 học viên/đợt</strong>, mỗi HLV chú ý được từng bé —
+          nhớ điểm mạnh, điểm cần cải thiện của từng con và điều chỉnh bài tập phù hợp.
+          Đó là lý do <strong>92% học viên tiếp tục</strong> sau buổi học thử đầu tiên.
+        </p>
+      </div>
+    </div>
+    <!-- Video HLV trên sân -->
+    <div class="fb-video-wrap" style="margin-top:24px;">
+      <iframe
+        src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fr%2F18i6SKADsX%2F&show_text=0&width=720&height=405"
+        width="720" height="405"
+        style="border:none;overflow:hidden;width:100%;aspect-ratio:16/9;"
+        scrolling="no" frameborder="0"
+        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+        allowfullscreen="true">
+      </iframe>
+    </div>
+  </div>
+</section>
+
+<!-- FOUNDER -->
+<section class="section section-alt">
+  <div class="container">
+    <span class="tag">Câu chuyện sáng lập</span>
+    <h2 class="section-title">Tại sao QNPA ra đời?</h2>
+    <div class="founder-box">
+      <!--
+        ẢNH CHỊ LÂM TRÀ MY:
+        Khi có ảnh, thay div bên dưới bằng:
+        <img src="đường-dẫn-ảnh.jpg" class="founder-photo" alt="Lâm Trà My" />
+      -->
+      <div class="founder-photo">👩</div>
+      <div class="founder-text">
+        <blockquote>
+          "Các con ở Hạ Long xứng đáng có một sân chơi lành mạnh, bài bản và chuyên nghiệp —
+          không phải chỉ để giải trí, mà là một môi trường thể thao thực sự,
+          nơi các con được phát triển toàn diện cả thể chất lẫn tinh thần,
+          rèn tính kỷ luật, xây dựng sự tự tin và học cách làm việc cùng đồng đội.
+          Đó là lý do QNPA ra đời."
+        </blockquote>
+        <div class="founder-name">Lâm Trà My</div>
+        <div class="founder-title">Nhà sáng lập — Quảng Ninh Pickleball Academy</div>
+      </div>
+    </div>
+    <!-- Video câu chuyện sáng lập -->
+    <div class="fb-video-wrap" style="margin-top:28px;">
+      <iframe
+        src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fv%2F1BVvmctD3s%2F&show_text=0&width=720&height=405"
+        width="720" height="405"
+        style="border:none;overflow:hidden;width:100%;aspect-ratio:16/9;"
+        scrolling="no" frameborder="0"
+        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+        allowfullscreen="true">
+      </iframe>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section">
+  <div class="container">
+    <span class="tag">Phụ huynh nói gì</span>
+    <h2 class="section-title">60 gia đình đã tin tưởng — đây là cảm nhận của họ</h2>
+    <p class="section-sub">Phản hồi thực từ các phụ huynh tại Hạ Long · Quảng Ninh</p>
+    <div class="testi-grid">
+      <!-- TESTIMONIAL 1: thay bằng feedback thật từ Ngọc Content -->
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-body">
+          "Con nhà mình ban đầu rất rụt rè, không dám chơi với bạn mới.
+          Sau 1 tháng trại hè, con tự nhắn mẹ xin đi học sớm hơn giờ —
+          đó là điều mình không ngờ tới."
+        </p>
+        <div class="testi-author">Chị Thu Hằng</div>
+        <div class="testi-info">Phụ huynh bé 7 tuổi · Hạ Long</div>
+      </div>
+      <!-- TESTIMONIAL 2 -->
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-body">
+          "Mình lo con không theo kịp vì chưa biết gì về Pickleball.
+          Nhưng HLV rất kiên nhẫn, giải thích từng bước.
+          Sĩ số nhỏ là điểm mình thích nhất — con được chú ý thật sự."
+        </p>
+        <div class="testi-author">Anh Minh Tuấn</div>
+        <div class="testi-info">Phụ huynh bé 9 tuổi · Hạ Long</div>
+      </div>
+      <!-- TESTIMONIAL 3 -->
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-body">
+          "Buổi học thử mình cho con đến chơi thử, không kỳ vọng gì.
+          Về nhà con kể chuyện hơn 1 tiếng, hỏi khi nào được đi lại.
+          Thế là đăng ký luôn."
+        </p>
+        <div class="testi-author">Chị Lan Anh</div>
+        <div class="testi-info">Phụ huynh bé 8 tuổi · Cẩm Phả</div>
+      </div>
+    </div>
+    <p style="text-align:center;margin-top:20px;font-size:.82rem;color:var(--gray);">
+      * Cập nhật thêm feedback thật từ Ngọc Content sau khi thu thập đủ
+    </p>
+  </div>
+</section>
+
+<!-- INFO TABLE -->
+<section class="section section-alt">
+  <div class="container">
+    <span class="tag">Thông tin khóa học</span>
+    <h2 class="section-title">Chi tiết chương trình Trại Hè Pickleball</h2>
+    <table class="info-table">
+      <tr><td>Chương trình</td><td>Pickleball Trại Hè 2026</td></tr>
+      <tr><td>Đối tượng</td><td>Trẻ em từ <strong>6 tuổi</strong> trở lên</td></tr>
+      <tr><td>Lịch học</td><td><strong>Thứ Hai → Thứ Sáu</strong> hằng tuần</td></tr>
+      <tr><td>Thời lượng buổi</td><td><strong>2 giờ/buổi</strong> · học theo nhóm cùng HLV</td></tr>
+      <tr><td>Sĩ số</td><td>Tối đa <strong>15 học viên/đợt</strong></td></tr>
+      <tr><td>Thời gian chương trình</td><td>3 tháng — đăng ký được từng tháng</td></tr>
+      <tr><td>Học phí</td><td><strong>2.500.000đ/tháng</strong></td></tr>
+      <tr><td>Địa điểm</td><td>Quảng Ninh Pickleball Academy · Hạ Long</td></tr>
+      <tr><td>Khai giảng</td><td>Tuyển sinh liên tục · còn chỗ là vào học được</td></tr>
+      <tr><td>Học thử</td><td><strong>Miễn phí 1 buổi</strong> — không cần cam kết hay đặt cọc</td></tr>
+      <tr><td>Liên hệ</td><td>
+        📞 <a href="tel:0888484466" style="color:var(--green);font-weight:700;">0888 484 466</a>
+        &nbsp;·&nbsp;
+        💬 <a href="https://zalo.me/0888484466" style="color:var(--green);font-weight:700;">Zalo ngay</a>
+      </td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section">
+  <div class="container">
+    <span class="tag">Câu hỏi thường gặp</span>
+    <h2 class="section-title">Bố mẹ hay hỏi những điều này</h2>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Con chưa biết gì về Pickleball có học được không?</summary>
+        <p>Được — và thực ra đó là điều tốt nhất! Trại Hè Pickleball được thiết kế dành cho người bắt đầu từ con số 0. HLV dạy từng bước theo lộ trình khoa học, từ cầm vợt đúng cách đến thi đấu thật sự. Không cần nền tảng thể thao trước đó.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Con bao nhiêu tuổi thì phù hợp?</summary>
+        <p>Chương trình phù hợp từ 6 tuổi trở lên. Ở độ tuổi này, trẻ đã đủ phản xạ và khả năng tập trung để tiếp thu kỹ thuật cơ bản của Pickleball. Nếu con dưới 6 tuổi, phụ huynh có thể liên hệ để HLV đánh giá trực tiếp.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Buổi học thử hoạt động thế nào? Có mất phí không?</summary>
+        <p>Hoàn toàn miễn phí — không cần cam kết, không cần đặt cọc trước. Bố mẹ đăng ký qua Zalo, QNPA xác nhận lịch và địa điểm. Buổi thử kéo dài 2 tiếng, con tham gia đầy đủ như học viên thật sự, không phải chỉ đứng xem.</p>
+      </details>
+      <details class="faq-item">
+        <summary>HLV có bằng chứng chỉ không?</summary>
+        <p>Pickleball là bộ môn còn rất mới tại Việt Nam — hiện chưa có hệ thống cấp bằng HLV chính thức từ liên đoàn. HLV của QNPA được lựa chọn dựa trên trình độ thực chiến, kinh nghiệm kèm trẻ em và khả năng truyền đam mê. Kết quả của học viên là thước đo chính xác nhất — 92% tiếp tục sau buổi thử đầu tiên.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Đóng học phí khi nào? Có hoàn lại không?</summary>
+        <p>Bố mẹ chỉ đóng học phí khi đã quyết định đăng ký chính thức — sau buổi học thử miễn phí. Không có chi phí nào trước khi con thử học và gia đình cảm thấy phù hợp.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Học ở đâu? Có xa không?</summary>
+        <p>QNPA hiện có sân tại Hạ Long, Quảng Ninh. Để biết địa chỉ sân cụ thể gần nhà bạn nhất và xác nhận lịch học thử, vui lòng nhắn Zalo <a href="https://zalo.me/0888484466" style="color:var(--green);">0888 484 466</a> — phản hồi trong vòng 15 phút.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <div class="container">
+    <h2>Chỉ còn <span style="color:var(--yellow)">vài suất</span> cho đợt tiếp theo</h2>
+    <p>
+      Đăng ký buổi học thử miễn phí hôm nay —<br/>
+      không cần cam kết, không cần đặt cọc, con đến và trải nghiệm thật sự.
+    </p>
+    <a href="https://zalo.me/0888484466" class="btn-main" style="font-size:1.2rem;padding:18px 48px;">
+      🎯 Đăng ký học thử miễn phí ngay
+    </a>
+    <p class="cta-sub">
+      💬 Nhắn Zalo <a href="https://zalo.me/0888484466" style="color:#86efac;">0888 484 466</a>
+      — phản hồi trong vòng 15 phút
+    </p>
+  </div>
+</section>
+
+<!-- STICKY CTA BAR -->
+<div class="sticky-cta">
+  <span>🏓 Trại Hè Pickleball QNPA — học thử miễn phí</span>
+  <a href="https://zalo.me/0888484466" class="btn-main" style="font-size:.9rem;padding:10px 22px;">
+    Đăng ký Zalo ngay
+  </a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <strong>Quảng Ninh Pickleball Academy</strong><br/>
+  Hotline: <a href="tel:0888484466" style="color:#9ca3af;">0888 484 466</a>
+  &nbsp;|&nbsp;
+  Zalo: <a href="https://zalo.me/0888484466" style="color:#9ca3af;">zalo.me/0888484466</a><br/>
+  <span style="font-size:.78rem;margin-top:8px;display:block;">© 2026 QNPA · Hạ Long · Quảng Ninh</span>
+</footer>
+
+</body>
+</html>
