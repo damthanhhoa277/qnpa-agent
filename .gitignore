@@ -1,0 +1,22 @@
+# ===== FILE MẬT — TUYỆT ĐỐI KHÔNG commit/đẩy lên GitHub =====
+.env
+.env.*
+credentials.json
+creds_b64.txt
+*.key
+*.pem
+token*.json
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+
+# ===== File trạng thái / log runtime (không cần version) =====
+qnpa_agent.lock
+*.log
+agent_log.txt
+stats_today.json
+human_sent_today.json
+kh_im_lang_data.json
+replied_convs.json
