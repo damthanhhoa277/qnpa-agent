@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phễu Sản Phẩm QNPA 2026</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Montserrat:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'Montserrat',sans-serif;background:#0a1628}
+
+/* NAV */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:rgba(10,22,40,.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(240,180,0,.2)}
+.nav-logo{font-weight:700;color:#F0B400;font-size:14px;letter-spacing:2px}
+.nav-pages{display:flex;gap:6px}
+.nav-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:.3s}
+.nav-dot.active{background:#F0B400;transform:scale(1.3)}
+.nav-btns{display:flex;gap:8px}
+.nav-btn{background:rgba(255,255,255,.1);color:#fff;border:none;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:11px;font-weight:600;transition:.2s}
+.nav-btn:hover{background:rgba(240,180,0,.3)}
+
+/* BOOK */
+.book{position:fixed;inset:56px 0 60px;display:flex;align-items:center;justify-content:center;perspective:2000px}
+.pages-wrap{position:relative;width:min(900px,96vw);height:100%}
+.page{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transform:translateX(60px);transition:all .5s cubic-bezier(.4,0,.2,1);pointer-events:none}
+.page.active{opacity:1;transform:translateX(0);pointer-events:all}
+.page.prev{opacity:0;transform:translateX(-60px)}
+
+/* BOTTOM */
+.bottom{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:20px;padding:14px;background:rgba(10,22,40,.9);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,.08)}
+.pg-btn{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);padding:8px 24px;border-radius:24px;cursor:pointer;font-size:13px;font-weight:600;transition:.2s;font-family:'Montserrat',sans-serif}
+.pg-btn:hover{background:rgba(240,180,0,.2);border-color:#F0B400}
+.pg-btn:disabled{opacity:.3;cursor:not-allowed}
+.pg-counter{color:rgba(255,255,255,.5);font-size:12px;min-width:60px;text-align:center}
+
+/* CARD BASE */
+.card{width:100%;max-height:100%;overflow-y:auto;border-radius:20px;padding:40px 44px;scrollbar-width:thin;scrollbar-color:rgba(240,180,0,.3) transparent}
+.card::-webkit-scrollbar{width:4px}.card::-webkit-scrollbar-thumb{background:rgba(240,180,0,.3);border-radius:2px}
+
+/* PAGE 1 — COVER */
+.pg-cover{background:linear-gradient(135deg,#0d1f3c 0%,#1B3A6B 50%,#0d1f3c 100%);text-align:center;position:relative;overflow:hidden}
+.pg-cover::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(240,180,0,.08),transparent 70%);pointer-events:none}
+.cover-tag{display:inline-block;background:rgba(240,180,0,.15);border:1px solid rgba(240,180,0,.4);color:#F0B400;padding:4px 16px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:24px}
+.cover-title{font-family:'Playfair Display',serif;font-size:52px;font-weight:900;color:#fff;line-height:1.05;margin-bottom:16px}
+.cover-title span{color:#F0B400}
+.cover-sub{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:40px;line-height:1.8;letter-spacing:.5px}
+.cover-stats{display:flex;justify-content:center;gap:40px;margin-top:32px}
+.cstat{text-align:center}
+.cstat-num{font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:#F0B400}
+.cstat-label{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px}
+.cover-scroll{margin-top:40px;color:rgba(255,255,255,.3);font-size:11px;letter-spacing:2px;animation:bob 2s infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+/* PAGE 2 — ENTRY */
+.pg-entry{background:linear-gradient(160deg,#0f2240,#1a3560)}
+.pg-title{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#fff;margin-bottom:6px}
+.pg-sub{font-size:12px;color:#F0B400;letter-spacing:2px;text-transform:uppercase;margin-bottom:32px}
+.entry-hero{background:rgba(240,180,0,.1);border:1px solid rgba(240,180,0,.3);border-radius:16px;padding:24px;text-align:center;margin-bottom:24px}
+.entry-hero .eh-icon{font-size:36px;margin-bottom:8px}
+.entry-hero .eh-title{font-family:'Playfair Display',serif;font-size:22px;color:#F0B400;font-weight:700;margin-bottom:8px}
+.entry-hero .eh-desc{font-size:12px;color:rgba(255,255,255,.7);line-height:1.7}
+.assess-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.assess-card{border-radius:12px;padding:16px;text-align:center;border:1px solid}
+.ac-new{background:rgba(255,200,0,.08);border-color:rgba(255,200,0,.3)}
+.ac-basic{background:rgba(26,188,156,.08);border-color:rgba(26,188,156,.3)}
+.ac-adv{background:rgba(142,68,173,.08);border-color:rgba(142,68,173,.3)}
+.ac-emoji{font-size:24px;margin-bottom:8px}
+.ac-title{font-weight:700;font-size:12px;color:#fff;margin-bottom:4px}
+.ac-dest{font-size:11px;color:rgba(255,255,255,.6);line-height:1.4}
+
+/* PAGE 3 — TRẠI HÈ */
+.pg-traihe{background:linear-gradient(160deg,#1a2800,#2d4a00)}
+/* PAGE 4 — CƠ BẢN */
+.pg-coban{background:linear-gradient(160deg,#002820,#004d3a)}
+/* PAGE 5 — TIỀN NC + NC */
+.pg-nangcao{background:linear-gradient(160deg,#1a0040,#2d0070)}
+/* PAGE 6 — CLB + JUNIOR */
+.pg-clb{background:linear-gradient(160deg,#001a30,#002d50)}
+/* PAGE 7 — MÔI SAO + ICP */
+.pg-moisao{background:linear-gradient(160deg,#2d1a00,#4d2d00)}
+/* PAGE 8 — CHỐT */
+.pg-chot{background:linear-gradient(160deg,#0a1628,#1B3A6B)}
+
+/* SHARED COMPONENTS */
+.section-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px 14px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
+.price-pill{display:inline-block;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:700;margin-left:8px}
+.pp-yellow{background:rgba(240,180,0,.2);color:#F0B400;border:1px solid rgba(240,180,0,.4)}
+.pp-green{background:rgba(26,188,156,.2);color:#1ABC9C;border:1px solid rgba(26,188,156,.4)}
+.pp-purple{background:rgba(142,68,173,.2);color:#C39BD3;border:1px solid rgba(142,68,173,.4)}
+.pp-blue{background:rgba(52,152,219,.2);color:#85C1E9;border:1px solid rgba(52,152,219,.4)}
+
+.flow-item{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
+.fi-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px}
+.fi-body{flex:1}
+.fi-title{font-weight:700;font-size:13px;color:#fff;margin-bottom:4px}
+.fi-desc{font-size:11px;color:rgba(255,255,255,.6);line-height:1.6}
+.fi-script{background:rgba(255,255,255,.05);border-left:2px solid rgba(240,180,0,.5);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:6px;font-size:11px;color:rgba(255,255,255,.7);font-style:italic;line-height:1.6}
+
+.divider-glow{height:1px;background:linear-gradient(90deg,transparent,rgba(240,180,0,.4),transparent);margin:20px 0}
+
+.icp-chip{display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:4px 10px;font-size:10px;color:rgba(255,255,255,.7);margin:3px}
+.icp-chip strong{color:#F0B400;font-weight:700}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mini-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px}
+.mc-title{font-weight:700;font-size:12px;color:#F0B400;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+.mc-item{font-size:11px;color:rgba(255,255,255,.7);margin-bottom:6px;padding-left:12px;position:relative;line-height:1.5}
+.mc-item::before{content:'›';position:absolute;left:0;color:#F0B400}
+
+.page-num{position:absolute;bottom:16px;right:20px;font-size:10px;color:rgba(255,255,255,.2);letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-logo">🎾 QNPA</div>
+  <div class="nav-pages" id="nav-dots"></div>
+  <div class="nav-btns">
+    <button class="nav-btn" onclick="window.print()">🖨️ In</button>
+  </div>
+</div>
+
+<div class="book">
+  <div class="pages-wrap" id="pages">
+
+    <!-- PAGE 1: COVER -->
+    <div class="page active" data-page="1">
+      <div class="card pg-cover">
+        <div class="cover-tag">QNPA · Tài liệu nội bộ · 2026</div>
+        <div class="cover-title">PHỄU SẢN<br>PHẨM <span>QNPA</span></div>
+        <div class="cover-sub">Lộ trình học viên hoàn chỉnh<br>từ Học Thử → Môi Sao · Chiến lược Upsell theo SSS</div>
+        <div class="divider-glow"></div>
+        <div class="cover-stats">
+          <div class="cstat"><div class="cstat-num">7</div><div class="cstat-label">Cấp độ</div></div>
+          <div class="cstat"><div class="cstat-num">3</div><div class="cstat-label">Ngách vào</div></div>
+          <div class="cstat"><div class="cstat-num">500k</div><div class="cstat-label">CLB/tháng</div></div>
+          <div class="cstat"><div class="cstat-num">6tr</div><div class="cstat-label">Nâng Cao/tháng</div></div>
+        </div>
+        <div class="cover-scroll">▼ &nbsp; Lật trang &nbsp; ▼</div>
+        <div class="page-num">1 / 8</div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: ENTRY -->
+    <div class="page" data-page="2">
+      <div class="card pg-entry">
+        <div class="section-badge">📍 Điểm Vào Phễu</div>
+        <div class="pg-title">Học Thử Miễn Phí</div>
+        <div class="pg-sub">Đánh giá trình độ · Phân 3 ngách</div>
+
+        <div class="entry-hero">
+          <div class="eh-icon">🎁</div>
+          <div class="eh-title">Mọi học viên đều bắt đầu từ đây</div>
+          <div class="eh-desc">HLV đánh giá trình độ thực tế ngay buổi đầu tiên<br>→ Phân vào đúng lớp · Không lãng phí tiền &amp; thời gian của phụ huynh</div>
+        </div>
+
+        <div class="assess-row">
+          <div class="assess-card ac-new">
+            <div class="ac-emoji">🆕</div>
+            <div class="ac-title">Chưa biết gì</div>
+            <div class="ac-dest">→ Học thử <strong style="color:#F0B400">Trại Hè</strong><br><span style="opacity:.6">Nhóm A · Mẹ 32-42t</span></div>
+          </div>
+          <div class="assess-card ac-basic">
+            <div class="ac-emoji">🏓</div>
+            <div class="ac-title">Biết đánh cơ bản</div>
+            <div class="ac-dest">→ Học thử <strong style="color:#1ABC9C">Cơ Bản</strong><br><span style="opacity:.6">Nhóm B · Mẹ 35-45t</span></div>
+          </div>
+          <div class="assess-card ac-adv">
+            <div class="ac-emoji">⚡</div>
+            <div class="ac-title">Đánh tốt rồi</div>
+            <div class="ac-dest">→ Học thử <strong style="color:#C39BD3">Nâng Cao</strong><br><span style="opacity:.6">Nhóm C · Doanh nhân</span></div>
+          </div>
+        </div>
+        <div class="page-num">2 / 8</div>
+      </div>
+    </div>
+
+    <!-- PAGE 3: TRẠI HÈ -->
+    <div class="page" data-page="3">
+      <div class="card pg-traihe">
+        <div class="section-badge">☀️ Ngách 1</div>
+        <div class="pg-title">Trại Hè Pickleball <span class="price-pill pp-yellow">2.5tr/tháng</span></div>
+        <div class="pg-sub">T2–T6 · 2h/buổi · ~20 buổi/tháng</div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(240,180,0,.2);border:1px solid rgba(240,180,0,.4)">🆕</div>
+          <div class="fi-body">
+            <div class="fi-title">Buổi 1-10 (2 tuần đầu) — HLV theo dõi liên tục</div>
+            <div class="fi-desc">Bé tiến nhanh hơn trung bình → Upsell lên Cơ Bản NGAY, không cần đợi hết tháng</div>
+            <div class="fi-script">"Bé nhà mình tiến bộ nhanh lắm ạ — HLV thấy đủ sẵn sàng cho lớp Cơ Bản luôn rồi ạ"</div>
+          </div>
+        </div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(240,180,0,.2);border:1px solid rgba(240,180,0,.4)">🏆</div>
+          <div class="fi-body">
+            <div class="fi-title">Buổi 18-19 — TEST cuối khóa (Mời phụ huynh xem)</div>
+            <div class="fi-desc">Đánh giá 5 tiêu chí: Dink ≥7/10 · Giao bóng ≥5/10 · Di chuyển NVZ · Luật · Tinh thần</div>
+          </div>
+        </div>
+
+        <div class="divider-glow"></div>
+
+        <div class="two-col">
+          <div class="mini-card">
+            <div class="mc-title">🥇 Xuất Sắc → Cơ Bản</div>
+            <div class="mc-item">4/5 tiêu chí tốt</div>
+            <div class="mc-item">Lên Cơ Bản tháng sau</div>
+            <div class="fi-script" style="margin-top:8px">"Bé có tố chất rõ ràng, lên Cơ Bản là đúng nhất ạ"</div>
+          </div>
+          <div class="mini-card">
+            <div class="mc-title">🌟 Đạt → Trại Hè T2-T3</div>
+            <div class="mc-item">Phụ huynh muốn vui hè thêm</div>
+            <div class="mc-item">Hoặc lên Cơ Bản sớm</div>
+            <div class="mc-item" style="color:rgba(240,180,0,.7)">Hết hè → CLB Junior (500k)</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;padding:10px 14px;background:rgba(240,180,0,.08);border-radius:8px;border:1px solid rgba(240,180,0,.2)">
+          <div style="font-size:10px;color:#F0B400;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">ICP Nhóm A</div>
+          <span class="icp-chip"><strong>Pain:</strong> "Hè con ôm điện thoại"</span>
+          <span class="icp-chip"><strong>Mua:</strong> Thời gian yên tâm cho con</span>
+          <span class="icp-chip"><strong>Trigger:</strong> FOMO đầu hè · Bạn đăng trước</span>
+        </div>
+        <div class="page-num">3 / 8</div>
+      </div>
+    </div>
+
+    <!-- PAGE 4: CƠ BẢN -->
+    <div class="page" data-page="4">
+      <div class="card pg-coban">
+        <div class="section-badge">📘 Ngách 2</div>
+        <div class="pg-title">Cơ Bản <span class="price-pill pp-green">5tr/20 buổi</span></div>
+        <div class="pg-sub">Lớp 6-8 bé · HLV chú ý từng bạn</div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(26,188,156,.15);border:1px solid rgba(26,188,156,.4)">📘</div>
+          <div class="fi-body">
+            <div class="fi-title">Buổi 18-19 — TEST cuối khóa Cơ Bản</div>
+            <div class="fi-desc">Rally FH ≥15 quả · BH kiểm soát hướng · Volley kitchen · Phát bóng ≥7/10 · Thi đấu 11 điểm</div>
+          </div>
+        </div>
+
+        <div class="divider-glow"></div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(142,68,173,.15);border:1px solid rgba(142,68,173,.4)">⚡</div>
+          <div class="fi-body">
+            <div class="fi-title">Xuất Sắc → Nâng Cao ngay</div>
+            <div class="fi-desc">4/5 tiêu chí tốt · HLV confirm sẵn sàng</div>
+            <div class="fi-script">"Bé nhà mình là 1 trong những HV xuất sắc nhất lớp — lên Nâng Cao là đúng nhất ạ"</div>
+          </div>
+        </div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(52,152,219,.15);border:1px solid rgba(52,152,219,.4)">🔄</div>
+          <div class="fi-body">
+            <div class="fi-title">Khá → Tiền Nâng Cao <span class="price-pill pp-blue" style="font-size:10px">2.5tr/tháng</span></div>
+            <div class="fi-desc">3 buổi/tuần · 2h/buổi · Lịch linh hoạt · 1-3 tháng luyện</div>
+            <div class="fi-script">"Thêm 1-2 tháng tập luyện là sẵn sàng lên Nâng Cao — Tiền NC là cầu nối hoàn hảo ạ"</div>
+          </div>
+        </div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15)">📘</div>
+          <div class="fi-body">
+            <div class="fi-title">Cần củng cố → Cơ Bản khóa 2</div>
+            <div class="fi-desc">Ưu đãi 500k khi đăng ký liên tục</div>
+          </div>
+        </div>
+
+        <div style="margin-top:4px;padding:10px 14px;background:rgba(26,188,156,.06);border-radius:8px;border:1px solid rgba(26,188,156,.2)">
+          <div style="font-size:10px;color:#1ABC9C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">ICP Nhóm B</div>
+          <span class="icp-chip"><strong>Pain:</strong> "Muốn lộ trình rõ ràng"</span>
+          <span class="icp-chip"><strong>Mua:</strong> Đầu tư bài bản · Cần chồng duyệt</span>
+          <span class="icp-chip"><strong>Nhạy:</strong> Lớp nhỏ · HLV kinh nghiệm</span>
+        </div>
+        <div class="page-num">4 / 8</div>
+      </div>
+    </div>
+
+    <!-- PAGE 5: TIỀN NC + NÂNG CAO -->
+    <div class="page" data-page="5">
+      <div class="card pg-nangcao">
+        <div class="section-badge">⚡ Ngách 3 + Tiền NC</div>
+        <div class="pg-title">Tiền Nâng Cao & Nâng Cao</div>
+        <div class="pg-sub"><span class="price-pill pp-blue">2.5tr/tháng</span> &nbsp;→&nbsp; <span class="price-pill pp-purple">6tr/tháng</span></div>
+
+        <div class="mini-card" style="margin-bottom:16px">
+          <div class="mc-title" style="color:#85C1E9">🔄 TIỀN NÂNG CAO — Cầu nối 1-3 tháng</div>
+          <div class="mc-item">3 buổi/tuần · 2h/buổi · Lịch linh hoạt</div>
+          <div class="mc-item">HLV đánh giá hàng tháng → báo khi đủ trình lên NC</div>
+          <div class="mc-item" style="color:rgba(240,180,0,.7)">Dừng lại → CLB Junior (500k)</div>
+        </div>
+
+        <div class="divider-glow"></div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(142,68,173,.2);border:1px solid rgba(142,68,173,.5)">⚡</div>
+          <div class="fi-body">
+            <div class="fi-title">NÂNG CAO <span class="price-pill pp-purple" style="font-size:10px">6tr/tháng</span></div>
+            <div class="fi-desc">1-3 khóa · Báo cáo kỹ thuật hàng tháng gửi phụ huynh · Cơ hội thi đấu</div>
+          </div>
+        </div>
+
+        <div class="two-col" style="margin-top:12px">
+          <div class="mini-card">
+            <div class="mc-title" style="color:#E67E22">🏃 Lớp Junior Tập Luyện</div>
+            <div class="mc-item">2tr/tháng · 3 buổi/tuần</div>
+            <div class="mc-item">Duy trì sau khi dừng NC</div>
+            <div class="mc-item">→ Tái upsell sau 3-6 tháng</div>
+          </div>
+          <div class="mini-card">
+            <div class="mc-title" style="color:#F0B400">🌟 Khóa Môi Sao</div>
+            <div class="mc-item">Học bổng · Chuẩn PTA</div>
+            <div class="mc-item">→ Trợ giảng (có lương)</div>
+            <div class="mc-item">→ HLV chính thức QNPA</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;padding:10px 14px;background:rgba(142,68,173,.06);border-radius:8px;border:1px solid rgba(142,68,173,.2)">
+          <div style="font-size:10px;color:#C39BD3;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">ICP Nhóm C</div>
+          <span class="icp-chip"><strong>Pain:</strong> "Con cần môi trường chuyên nghiệp"</span>
+          <span class="icp-chip"><strong>Mua:</strong> Không nhạy giá · Nhạy kết quả</span>
+          <span class="icp-chip"><strong>Vào qua:</strong> Network doanh nhân</span>
+        </div>
+        <div class="page-num">5 / 8</div>
+      </div>
+    </div>
+
+    <!-- PAGE 6: CLB JUNIOR -->
+    <div class="page" data-page="6">
+      <div class="card pg-clb">
+        <div class="section-badge">🎾 Retention</div>
+        <div class="pg-title">CLB Junior QNPA <span class="price-pill pp-yellow">500k/tháng</span></div>
+        <div class="pg-sub">Thứ 7 + CN · 7:00–9:00 sáng · Không học bài — chỉ VUI</div>
+
+        <div class="two-col" style="margin-bottom:16px">
+          <div class="mini-card">
+            <div class="mc-title">📋 Format 1 buổi</div>
+            <div class="mc-item">7:00–7:15: Khởi động · Chia đội</div>
+            <div class="mc-item">7:15–8:00: Thi đấu đôi xoay vòng</div>
+            <div class="mc-item">8:00–8:40: Knock-out mini · Top 4</div>
+            <div class="mc-item">8:40–9:00: Tổng kết · Chụp ảnh</div>
+          </div>
+          <div class="mini-card">
+            <div class="mc-title">🏆 Hệ thống giải thưởng</div>
+            <div class="mc-item">BXH tuần · Cập nhật Zalo ngay</div>
+            <div class="mc-item">Mini giải tháng · Mời PH xem</div>
+            <div class="mc-item">Huy chương Top 3 hàng tháng</div>
+            <div class="mc-item">Danh hiệu: Tiến bộ · Tinh thần</div>
+          </div>
+        </div>
+
+        <div class="divider-glow"></div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(52,152,219,.15);border:1px solid rgba(52,152,219,.4)">✅</div>
+          <div class="fi-body">
+            <div class="fi-title">Điều kiện vào CLB</div>
+            <div class="fi-desc">Đã học ≥1 tháng Trại Hè HOẶC ≥10 buổi Cơ Bản HOẶC HLV confirm đủ trình</div>
+          </div>
+        </div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(240,180,0,.15);border:1px solid rgba(240,180,0,.4)">🔄</div>
+          <div class="fi-body">
+            <div class="fi-title">Tái Upsell từ CLB — Khi nào?</div>
+            <div class="fi-desc">Bé dẫn đầu BXH nhiều tuần · Bé tự hỏi về kỹ thuật · PH hỏi "có lớp nào học tiếp không?"</div>
+            <div class="fi-script">"Bé tháng này điểm cao nhất CLB — đang đến trần rồi, cần lớp thách thức hơn ạ. Chị thử Lớp Nâng Cao không ạ?"</div>
+          </div>
+        </div>
+
+        <div style="padding:12px 14px;background:rgba(240,180,0,.06);border-radius:8px;border:1px dashed rgba(240,180,0,.3)">
+          <div style="font-size:11px;color:rgba(255,255,255,.7);line-height:1.7">
+            💡 <strong style="color:#F0B400">CLB = Lưới giữ khách</strong> — Bé không học thêm ngay nhưng vẫn trong hệ sinh thái QNPA. Referral tự nhiên khi PH gặp nhau tại sân T7/CN.
+          </div>
+        </div>
+        <div class="page-num">6 / 8</div>
+      </div>
+    </div>
+
+    <!-- PAGE 7: BÀI TEST + ICP TỔNG -->
+    <div class="page" data-page="7">
+      <div class="card pg-moisao">
+        <div class="section-badge">📋 Công cụ Upsell</div>
+        <div class="pg-title">Bài Test Cuối Khóa</div>
+        <div class="pg-sub">Buổi 18-19 · Buổi 20: Lễ Tốt Nghiệp</div>
+
+        <div class="flow-item">
+          <div class="fi-dot" style="background:rgba(240,180,0,.2);border:1px solid rgba(240,180,0,.4)">✨</div>
+          <div class="fi-body">
+            <div class="fi-title">Trải nghiệm WOW tạo moment chốt đơn</div>
+            <div class="fi-desc">Nhắn mời PH trước 3 ngày → PH đến xem con thi → Quay clip → HLV nhận xét từng bé trước mặt PH → Lễ trao thưởng → Gặp riêng 5 phút → Upsell</div>
+          </div>
+        </div>
+
+        <div class="divider-glow"></div>
+
+        <div class="two-col">
+          <div class="mini-card">
+            <div class="mc-title" style="color:#F0B400">🎁 Phần Thưởng</div>
+            <div class="mc-item">📜 Giấy ghi nhận thành tích (in màu A4)</div>
+            <div class="mc-item">🥇 Huy chương mica · Vàng/Bạc/Đồng</div>
+            <div class="mc-item">📓 QNPA Player Passport</div>
+            <div class="mc-item">🎖️ Pin + Sticker dán balo</div>
+          </div>
+          <div class="mini-card">
+            <div class="mc-title" style="color:#F0B400">📊 Kết quả → Định hướng</div>
+            <div class="mc-item">Xuất sắc (4/5) → Lên cấp ngay</div>
+            <div class="mc-item">Đạt (3/5) → Tiền NC / tiếp tục</div>
+            <div class="mc-item">Cần cố gắng → Cùng cấp</div>
+            <div class="mc-item" style="color:rgba(240,180,0,.7)">Không muốn tiếp → CLB Junior</div>
+          </div>
+        </div>
+
+        <div class="divider-glow"></div>
+
+        <div style="padding:12px;background:rgba(255,255,255,.04);border-radius:10px">
+          <div style="font-size:10px;color:#F0B400;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">5 Nguyên Tắc Upsell — SSS</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div class="mc-item" style="font-size:11px">Upsell = <strong style="color:#F0B400">Lời khuyên chuyên gia</strong></div>
+            <div class="mc-item" style="font-size:11px">Timing: Sau moment <strong style="color:#F0B400">cảm xúc cao</strong></div>
+            <div class="mc-item" style="font-size:11px"><strong style="color:#F0B400">Hỏi mục tiêu</strong> PH trước</div>
+            <div class="mc-item" style="font-size:11px">Đưa <strong style="color:#F0B400">2-3 option</strong>, không ép</div>
+            <div class="mc-item" style="font-size:11px">Deadline mềm: "<strong style="color:#F0B400">giữ chỗ đến...</strong>"</div>
+            <div class="mc-item" style="font-size:11px">Follow-up Zalo sau <strong style="color:#F0B400">48h</strong></div>
+          </div>
+        </div>
+        <div class="page-num">7 / 8</div>
+      </div>
+    </div>
+
+    <!-- PAGE 8: TỔNG KẾT -->
+    <div class="page" data-page="8">
+      <div class="card pg-chot" style="text-align:center">
+        <div class="section-badge" style="display:inline-flex">🗺️ Bản Đồ Phễu</div>
+        <div class="pg-title">Toàn Bộ Hành Trình</div>
+        <div class="pg-sub" style="margin-bottom:28px">Từ Học Thử → Môi Sao</div>
+
+        <div style="text-align:left">
+          <div class="flow-item">
+            <div class="fi-dot" style="background:rgba(240,180,0,.2);font-size:12px">🎁</div>
+            <div class="fi-body"><div class="fi-title" style="color:#F0B400">Học Thử Miễn Phí</div><div class="fi-desc">Đánh giá trình độ → Phân 3 ngách</div></div>
+          </div>
+          <div class="flow-item">
+            <div class="fi-dot" style="background:rgba(240,180,0,.15);font-size:12px">☀️</div>
+            <div class="fi-body"><div class="fi-title">Trại Hè <span style="color:#F0B400">2.5tr/tháng</span></div><div class="fi-desc">Upsell sớm (2 tuần) HOẶC T2-T3 HOẶC CLB</div></div>
+          </div>
+          <div class="flow-item">
+            <div class="fi-dot" style="background:rgba(26,188,156,.15);font-size:12px">📘</div>
+            <div class="fi-body"><div class="fi-title">Cơ Bản <span style="color:#1ABC9C">5tr/20 buổi</span></div><div class="fi-desc">→ Nâng Cao HOẶC Tiền Nâng Cao (2.5tr)</div></div>
+          </div>
+          <div class="flow-item">
+            <div class="fi-dot" style="background:rgba(52,152,219,.15);font-size:12px">🔄</div>
+            <div class="fi-body"><div class="fi-title">Tiền Nâng Cao <span style="color:#85C1E9">2.5tr/tháng</span></div><div class="fi-desc">1-3 tháng → Nâng Cao HOẶC CLB Junior</div></div>
+          </div>
+          <div class="flow-item">
+            <div class="fi-dot" style="background:rgba(142,68,173,.15);font-size:12px">⚡</div>
+            <div class="fi-body"><div class="fi-title">Nâng Cao <span style="color:#C39BD3">6tr/tháng</span></div><div class="fi-desc">1-3 khóa → Lớp Junior (2tr) HOẶC CLB HOẶC Môi Sao</div></div>
+          </div>
+          <div class="flow-item">
+            <div class="fi-dot" style="background:rgba(17,165,137,.15);font-size:12px">🎾</div>
+            <div class="fi-body"><div class="fi-title">CLB Junior <span style="color:#17A589">500k/tháng</span></div><div class="fi-desc">T7/CN · Retention · Tái upsell sau 1-2 tháng</div></div>
+          </div>
+          <div class="flow-item">
+            <div class="fi-dot" style="background:rgba(240,180,0,.2);font-size:12px">🌟</div>
+            <div class="fi-body"><div class="fi-title" style="color:#F0B400">Khóa Môi Sao → Trợ Giảng → HLV</div><div class="fi-desc">Học bổng · Tiêu chuẩn PTA · Có lương · Đại sứ thương hiệu</div></div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding:14px;background:rgba(240,180,0,.08);border-radius:12px;border:1px solid rgba(240,180,0,.2)">
+          <div style="font-size:12px;color:#F0B400;font-weight:700;margin-bottom:4px">💡 Triết lý cốt lõi</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.7">Không có điểm kết thúc — chỉ có điểm chuyển hướng.<br>CLB Junior là lưới an toàn giữ mọi học viên trong hệ sinh thái QNPA.</div>
+        </div>
+        <div class="page-num">8 / 8</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="bottom">
+  <button class="pg-btn" id="btn-prev" onclick="goPage(-1)" disabled>← Trước</button>
+  <div class="pg-counter" id="counter">1 / 8</div>
+  <button class="pg-btn" id="btn-next" onclick="goPage(1)">Tiếp →</button>
+</div>
+
+<script>
+const pages = document.querySelectorAll('.page');
+const total = pages.length;
+let cur = 0;
+
+const dotsWrap = document.getElementById('nav-dots');
+pages.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'nav-dot' + (i===0?' active':'');
+  d.onclick = () => setPage(i);
+  dotsWrap.appendChild(d);
+});
+
+function setPage(n) {
+  pages[cur].classList.remove('active');
+  pages[cur].classList.add('prev');
+  setTimeout(() => pages[cur].classList.remove('prev'), 500);
+  cur = Math.max(0, Math.min(n, total-1));
+  pages[cur].classList.add('active');
+  document.querySelectorAll('.nav-dot').forEach((d,i) => d.classList.toggle('active', i===cur));
+  document.getElementById('counter').textContent = (cur+1) + ' / ' + total;
+  document.getElementById('btn-prev').disabled = cur===0;
+  document.getElementById('btn-next').disabled = cur===total-1;
+}
+
+function goPage(dir) { setPage(cur + dir); }
+
+document.addEventListener('keydown', e => {
+  if (e.key==='ArrowRight'||e.key==='ArrowDown') goPage(1);
+  if (e.key==='ArrowLeft'||e.key==='ArrowUp') goPage(-1);
+});
+
+let startX = 0;
+document.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - startX;
+  if (Math.abs(dx) > 50) goPage(dx < 0 ? 1 : -1);
+});
+</script>
+</body>
+</html>
